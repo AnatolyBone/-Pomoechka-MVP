@@ -497,6 +497,20 @@
         async function initApp() {
             console.log('🚀 Инициализация приложения...');
             
+            // Проверяем, что CONFIG загружен
+            if (!window.CONFIG) {
+                console.error('❌ CONFIG не загружен! Проверьте загрузку js/config.js');
+                document.getElementById('authError').classList.remove('hidden');
+                document.getElementById('authStatus').classList.add('hidden');
+                const errorText = document.querySelector('#authError p:last-child');
+                if (errorText) {
+                    errorText.textContent = 'Ошибка: CONFIG не загружен. Проверьте консоль.';
+                }
+                return;
+            }
+            
+            console.log('✅ CONFIG загружен, API_URL:', window.CONFIG.API_URL);
+            
             // Проверяем авторизацию через Telegram
             const isTelegram = !!window.Telegram?.WebApp?.initData;
             console.log('📱 Telegram detected:', isTelegram);
@@ -630,14 +644,20 @@
                 return;
             }
             
-            // Проверяем доступность бэкенда (используем функцию из config.js)
-            const hasBackend = () => window.CONFIG && !!window.CONFIG.API_URL;
-            
-            if (!hasBackend()) {
-                alert('❌ Бэкенд не настроен. Проверьте CONFIG.API_URL.');
-                console.error('CONFIG.API_URL:', window.CONFIG?.API_URL);
+            // Проверяем доступность бэкенда
+            if (!window.CONFIG) {
+                alert('❌ CONFIG не загружен. Проверьте загрузку js/config.js');
+                console.error('CONFIG не найден');
                 return;
             }
+            
+            if (!window.CONFIG.API_URL) {
+                alert('❌ API_URL не настроен в CONFIG. Проверьте js/config.js');
+                console.error('CONFIG.API_URL:', window.CONFIG.API_URL);
+                return;
+            }
+            
+            console.log('✅ CONFIG загружен, API_URL:', window.CONFIG.API_URL);
             
             // Проверяем доступность бэкенда
             try {

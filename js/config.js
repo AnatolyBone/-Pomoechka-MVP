@@ -84,3 +84,8 @@ const ENV = {
 
 // === Check if we have a backend ===
 const hasBackend = () => !!CONFIG.API_URL;
+
+// Экспортируем CONFIG глобально для доступа из HTML
+window.CONFIG = CONFIG;
+window.ENV = ENV;
+window.hasBackend = hasBackend;
