@@ -529,71 +529,312 @@
             await initApp();
         });
         
+        // Показ ошибки
+        function showError(message) {
+            console.error('🚨 showError:', message);
+            
+            const authScreen = document.getElementById('authScreen');
+            const authStatus = document.getElementById('authStatus');
+            const authNotTelegram = document.getElementById('authNotTelegram');
+            
+            // Скрываем статус загрузки
+            if (authStatus) authStatus.classList.add('hidden');
+            if (authNotTelegram) authNotTelegram.classList.add('hidden');
+            
+            // Показываем или создаём контейнер ошибки
+            let errorContainer = document.getElementById('authError');
+            
+            if (!errorContainer && authScreen) {
+                errorContainer = document.createElement('div');
+                errorContainer.id = 'authError';
+                authScreen.appendChild(errorContainer);
+            }
+            
+            if (errorContainer) {
+                errorContainer.innerHTML = `
+                    <div style="text-align: center; padding: 24px;">
+                        <div style="font-size: 64px; margin-bottom: 16px;">⛔</div>
+                        <h2 style="color: #ef4444; margin-bottom: 12px; font-size: 20px;">Ошибка</h2>
+                        <p style="color: #666; margin-bottom: 20px; line-height: 1.5;">${message}</p>
+                        <button onclick="location.reload()" style="
+                            padding: 12px 32px;
+                            background: linear-gradient(135deg, #10b981, #059669);
+                            color: white;
+                            border: none;
+                            border-radius: 12px;
+                            font-size: 16px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+                        ">🔄 Перезагрузить</button>
+                    </div>
+                `;
+                errorContainer.classList.remove('hidden');
+            }
+            
+            if (authScreen) {
+                authScreen.style.display = 'flex';
+                authScreen.classList.remove('hidden');
+            }
+        }
+        
+        // Показ предупреждения о режиме разработки
+        function showDevModeWarning() {
+            // Удаляем старое предупреждение если есть
+            const existing = document.getElementById('dev-warning');
+            if (existing) existing.remove();
+            
+            const warning = document.createElement('div');
+            warning.id = 'dev-warning';
+            warning.innerHTML = `
+                <div style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    background: linear-gradient(90deg, #ff9800, #ff5722);
+                    color: white;
+                    padding: 10px 16px;
+                    text-align: center;
+                    font-size: 13px;
+                    font-weight: 500;
+                    z-index: 10000;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                ">
+                    ⚠️ Режим разработки — данные тестовые
+                    <button onclick="this.parentElement.parentElement.remove()" style="
+                        margin-left: 16px;
+                        background: rgba(255,255,255,0.2);
+                        border: none;
+                        color: white;
+                        padding: 4px 12px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 12px;
+                    ">✕</button>
+                </div>
+            `;
+            document.body.prepend(warning);
+            
+            // Добавляем отступ для контента
+            document.body.style.paddingTop = '44px';
+        }
+        
+        // Вспомогательные функции
+        function hideAuthScreen() {
+            const authScreen = document.getElementById('authScreen');
+            if (authScreen) {
+                authScreen.style.display = 'none';
+                authScreen.classList.add('hidden');
+            }
+        }
+
+        function showMainApp() {
+            const mainApp = document.getElementById('mainApp');
+            if (mainApp) {
+                mainApp.style.display = 'block';
+                mainApp.classList.remove('hidden');
+            }
+        }
+
+        // Инициализация пользователя
+        async function initializeUser(telegramUser) {
+            console.log('👤 Инициализация пользователя:', telegramUser.id);
+            
+            // Пробуем получить данные с бэкенда
+            if (window.API && typeof API.getCurrentUser === 'function') {
+                try {
+                    const userData = await API.getCurrentUser();
+                    if (userData) {
+                        window.currentUserData = userData;
+                        console.log('✅ Данные пользователя с бэкенда:', userData);
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Не удалось получить данные с бэкенда:', e.message);
+                }
+            }
+            
+            // Fallback - локальные данные
+            window.currentUserData = {
+                id: telegramUser.id,
+                telegram_id: telegramUser.id,
+                name: `${telegramUser.first_name} ${telegramUser.last_name || ''}`.trim(),
+                username: telegramUser.username || '',
+                karma: 0,
+                items_count: 0,
+                created_at: new Date().toISOString()
+            };
+            console.log('📦 Используем локальные данные пользователя:', window.currentUserData);
+        }
+
+        // Проверка прав доступа
+        async function checkPermissions() {
+            console.log('🔐 Проверка прав доступа...');
+            
+            let isAdmin = false;
+            let isCreator = false;
+            
+            if (window.API) {
+                try {
+                    if (typeof API.isAdmin === 'function') {
+                        isAdmin = await API.isAdmin();
+                    }
+                    if (typeof API.isCreator === 'function') {
+                        isCreator = await API.isCreator();
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Ошибка проверки прав:', e.message);
+                }
+            }
+            
+            console.log('🔐 Права:', { isAdmin, isCreator });
+            
+            // Показываем кнопку админки если есть права
+            const adminBtn = document.getElementById('adminPanelBtn');
+            if (adminBtn) {
+                if (isAdmin || isCreator) {
+                    adminBtn.classList.remove('hidden');
+                    adminBtn.style.display = 'block';
+                } else {
+                    adminBtn.classList.add('hidden');
+                    adminBtn.style.display = 'none';
+                }
+            }
+            
+            // Показываем кнопки админки в хедере
+            if (isAdmin || isCreator) {
+                document.getElementById('adminBtn')?.classList.remove('hidden');
+                document.getElementById('adminBtnFeed')?.classList.remove('hidden');
+            }
+            
+            // Проверяем, нужно ли показать модалку настройки создателя
+            if (!isCreator && window.API) {
+                try {
+                    const hasCreator = await checkIfCreatorExists();
+                    if (!hasCreator) {
+                        showCreatorSetupModal();
+                    }
+                } catch (e) {
+                    console.warn('⚠️ Ошибка проверки создателя:', e.message);
+                }
+            }
+            
+            window.userPermissions = { isAdmin, isCreator };
+        }
+
+        async function checkIfCreatorExists() {
+            // Проверяем, есть ли уже создатель в системе
+            try {
+                if (!window.CONFIG || !window.CONFIG.API_URL) return true;
+                
+                const response = await fetch(`${window.CONFIG.API_URL}/api/admin/settings`, {
+                    headers: { 
+                        'X-Telegram-ID': window.currentUser?.id?.toString() || '',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    return !!data.creatorId;
+                }
+                return true; // Если не можем проверить, считаем что есть
+            } catch (e) {
+                return true; // Если не можем проверить, считаем что есть
+            }
+        }
+
+        function showCreatorSetupModal() {
+            const modal = document.getElementById('creatorSetupModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+            }
+        }
+        
         async function initApp() {
             console.log('🚀 Инициализация приложения...');
             
-            // Проверяем, что CONFIG загружен
+            // Ждём загрузки CONFIG
+            let attempts = 0;
+            while (!window.CONFIG && attempts < 50) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            
             if (!window.CONFIG) {
-                console.error('❌ CONFIG не загружен! Проверьте загрузку js/config.js');
-                console.error('Доступные глобальные объекты:', Object.keys(window).filter(k => 
-                    k.includes('CONFIG') || k.includes('Config') || k.includes('config')
-                ));
-                console.error('Все скрипты:', document.querySelectorAll('script[src]'));
-                
-                document.getElementById('authError').classList.remove('hidden');
-                document.getElementById('authStatus').classList.add('hidden');
-                const errorText = document.querySelector('#authError p:last-child');
-                if (errorText) {
-                    errorText.textContent = 'Ошибка: CONFIG не загружен. Проверьте консоль и загрузку js/config.js';
-                }
+                showError('CONFIG не загружен. Проверьте консоль и загрузку js/config.js');
                 return;
             }
             
             console.log('✅ CONFIG загружен, API_URL:', window.CONFIG.API_URL);
             
-            // Проверяем авторизацию через Telegram
-            // Проверяем несколько способов определения Telegram
-            const hasTelegramWebApp = !!window.Telegram?.WebApp;
-            const hasInitData = !!window.Telegram?.WebApp?.initData;
-            const hasInitDataUnsafe = !!window.Telegram?.WebApp?.initDataUnsafe;
-            const hasUser = !!window.Telegram?.WebApp?.initDataUnsafe?.user;
+            // Проверяем Telegram окружение
+            const tg = window.Telegram?.WebApp;
             
-            // Telegram считается доступным, если есть WebApp объект И (initData ИЛИ initDataUnsafe)
-            const isTelegram = hasTelegramWebApp && (hasInitData || hasInitDataUnsafe);
+            // Важно: проверяем СОДЕРЖИМОЕ, а не просто наличие объекта
+            const hasInitData = !!tg?.initData && tg.initData.length > 0;
+            const initDataUnsafe = tg?.initDataUnsafe || {};
+            const hasInitDataUnsafe = Object.keys(initDataUnsafe).length > 0;
+            const hasUser = !!initDataUnsafe?.user;
             
             console.log('📱 Telegram detection:', {
-                hasTelegramWebApp,
+                hasTelegramWebApp: !!tg,
                 hasInitData,
                 hasInitDataUnsafe,
                 hasUser,
-                isTelegram,
-                version: window.Telegram?.WebApp?.version
+                initData: tg?.initData?.substring(0, 50) + '...',
+                initDataUnsafeKeys: Object.keys(initDataUnsafe),
+                version: tg?.version
             });
             
-            if (!isTelegram) {
-                console.log('❌ Не Telegram окружение');
-                document.getElementById('authNotTelegram').classList.remove('hidden');
-                document.getElementById('authStatus').classList.add('hidden');
-                return;
+            // Инициализируем Telegram WebApp (если есть)
+            if (tg) {
+                try {
+                    tg.ready();
+                    tg.expand();
+                    console.log('✅ Telegram WebApp инициализирован');
+                } catch (e) {
+                    console.warn('⚠️ Ошибка инициализации Telegram WebApp:', e);
+                }
             }
             
-            // Инициализируем Telegram WebApp
-            if (window.Telegram?.WebApp) {
-                Telegram.WebApp.ready();
-                Telegram.WebApp.expand();
-                console.log('✅ Telegram WebApp инициализирован');
-            }
-            
-            // Получаем пользователя из Telegram
-            const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+            // Получаем пользователя
+            let tgUser = initDataUnsafe?.user;
             console.log('👤 Telegram user:', tgUser ? { id: tgUser.id, name: tgUser.first_name } : 'не найден');
             
+            // === Определяем режим работы ===
+            const isLocalDev = window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1';
+            
+            // Браузерный режим: нет initData ИЛИ нет пользователя
+            const isBrowserMode = !hasInitData || !hasUser;
+            
+            console.log('🔧 Режим:', { isLocalDev, isBrowserMode, hasUser });
+            
             if (!tgUser) {
-                console.error('❌ Пользователь Telegram не найден');
-                document.getElementById('authError').classList.remove('hidden');
-                document.getElementById('authStatus').classList.add('hidden');
-                return;
+                if (isLocalDev || isBrowserMode) {
+                    // === Режим разработки / тестирования в браузере ===
+                    console.log('⚠️ Режим разработки: используем мок-пользователя');
+                    tgUser = {
+                        id: 12345678,
+                        first_name: 'Тест',
+                        last_name: 'Пользователь',
+                        username: 'test_user'
+                    };
+                    showDevModeWarning();
+                } else {
+                    // Реальный Telegram, но что-то пошло не так
+                    console.error('❌ Telegram окружение, но нет пользователя');
+                    showError('Не удалось получить данные пользователя. Попробуйте перезапустить приложение через меню бота.');
+                    return;
+                }
             }
+            
+            // Сохраняем пользователя глобально
+            window.currentUser = tgUser;
+            console.log('✅ Пользователь установлен:', tgUser.id, tgUser.first_name);
             
             // Инициализируем API
             let backendAvailable = false;
@@ -606,50 +847,24 @@
                     console.error('❌ API init error:', e);
                 }
             } else {
-                console.error('❌ API не найден');
+                console.warn('⚠️ API модуль не найден, работаем локально');
             }
             
-            // Получаем или создаем пользователя
             try {
-                console.log('👤 Получение пользователя...');
-                const user = await API.getCurrentUser();
-                console.log('✅ Пользователь получен:', user ? { id: user.id, name: user.name } : 'null');
-                
-                // Проверяем, является ли пользователь создателем/админом
-                const isAdmin = await API.isAdmin();
-                const isCreator = await API.isCreator();
-                
-                // Показываем кнопку админки если админ
-                if (isAdmin || isCreator) {
-                    document.getElementById('adminBtn')?.classList.remove('hidden');
-                    document.getElementById('adminBtnFeed')?.classList.remove('hidden');
-                    document.getElementById('adminPanelBtn')?.classList.remove('hidden');
-                }
-                
-                // Проверяем, нужно ли настроить создателя
-                if (backendAvailable && isCreator === false) {
-                    // Проверяем, есть ли создатель в системе
-                    try {
-                        const settings = await API.getAdminSettings();
-                        if (!settings.creatorId) {
-                            // Создателя нет - показываем модалку настройки
-                            document.getElementById('creatorSetupModal').classList.remove('hidden');
-                        }
-                    } catch (e) {
-                        // Если ошибка доступа - значит создателя нет
-                        document.getElementById('creatorSetupModal').classList.remove('hidden');
-                    }
-                }
+                // Инициализация пользователя
+                await initializeUser(tgUser);
                 
                 // Скрываем экран авторизации, показываем приложение
-                document.getElementById('authScreen').classList.add('hidden');
-                document.getElementById('mainApp').classList.remove('hidden');
+                hideAuthScreen();
+                showMainApp();
+                
+                // Проверяем права доступа
+                await checkPermissions();
                 
                 // Инициализируем приложение
                 if (window.App) {
                     App.telegramUser = tgUser;
                     
-                    // Инициализируем компоненты
                     if (window.initAppComponents) {
                         initAppComponents();
                     }
@@ -657,24 +872,11 @@
                     showScreen('map');
                 }
                 
-            } catch (e) {
-                console.error('❌ Auth error:', e);
-                console.error('Error details:', {
-                    message: e.message,
-                    stack: e.stack,
-                    name: e.name
-                });
+                console.log('🎉 Приложение успешно инициализировано!');
                 
-                // Показываем более детальную ошибку
-                const errorDiv = document.getElementById('authError');
-                if (errorDiv) {
-                    errorDiv.classList.remove('hidden');
-                    const errorText = errorDiv.querySelector('p:last-child');
-                    if (errorText) {
-                        errorText.textContent = `Ошибка: ${e.message || 'Неизвестная ошибка'}. Проверьте консоль для деталей.`;
-                    }
-                }
-                document.getElementById('authStatus').classList.add('hidden');
+            } catch (e) {
+                console.error('❌ Ошибка инициализации:', e);
+                showError('Ошибка инициализации: ' + (e.message || 'Неизвестная ошибка'));
             }
         }
         
