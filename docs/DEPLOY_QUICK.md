@@ -68,5 +68,5 @@ git push
 
 ---
 
-Подробная инструкция: [DEPLOY.md](DEPLOY.md)
+Подробная инструкция: [DEPLOY.md](DEPLOY.md) (в той же папке)
 

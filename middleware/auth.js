@@ -1,194 +1,112 @@
+// middleware/auth.js
 const { getDatabase } = require('../db/database');
 
-/**
- * Verify Telegram WebApp authentication
- * Checks if the request has valid Telegram initData
- */
-function verifyTelegramAuth(req, res, next) {
-    // In production, verify Telegram initData signature
-    // For now, we'll accept telegram_id from headers or body
+// Получение Telegram ID из заголовков
+function getTelegramId(req) {
+    // Пробуем разные источники
+    const fromHeader = req.headers['x-telegram-id'];
+    const fromQuery = req.query.telegram_id;
+    const fromBody = req.body?.telegram_id;
     
-    const telegramId = req.headers['x-telegram-id'] || req.body.telegram_id || req.query.telegram_id;
+    const telegramId = fromHeader || fromQuery || fromBody;
     
-    if (!telegramId) {
-        return res.status(401).json({ error: 'Telegram authentication required' });
-    }
+    console.log('🔐 getTelegramId:', { fromHeader, fromQuery, fromBody, result: telegramId });
     
-    req.telegramId = parseInt(telegramId);
-    next();
+    return telegramId ? String(telegramId) : null;
 }
 
-/**
- * Check if user is admin
- */
-async function requireAdmin(req, res, next) {
-    const telegramId = req.telegramId;
-    
-    if (!telegramId) {
-        return res.status(401).json({ error: 'Authentication required' });
-    }
-    
+// Получение или создание пользователя
+async function getOrCreateUser(telegramId, userData = {}) {
     const db = getDatabase();
-    const admin = await new Promise((resolve, reject) => {
-        db.get(
-            'SELECT * FROM admins WHERE telegram_id = ?',
-            [telegramId],
-            (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
+    
+    return new Promise((resolve, reject) => {
+        // Сначала пытаемся найти пользователя
+        db.get('SELECT * FROM users WHERE telegram_id = ?', [telegramId], (err, user) => {
+            if (err) {
+                console.error('❌ DB error:', err);
+                return reject(err);
             }
-        );
+            
+            if (user) {
+                console.log('✅ Пользователь найден:', user.id);
+                return resolve(formatUser(user));
+            }
+            
+            // Создаём нового пользователя
+            const name = userData.name || userData.first_name || 'Пользователь';
+            const username = userData.username || '';
+            const initial = name.charAt(0).toUpperCase();
+            const now = Date.now();
+            
+            db.run(
+                `INSERT INTO users (
+                    telegram_id, name, username, initial, karma,
+                    stats_published, stats_taken, stats_saved_kg,
+                    stats_fast_pickups, stats_thanks, stats_reliability,
+                    achievements, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 100, '[]', ?, ?)`,
+                [telegramId, name, username || null, initial, now, now],
+                function(err) {
+                    if (err) {
+                        console.error('❌ Ошибка создания пользователя:', err);
+                        return reject(err);
+                    }
+                    
+                    console.log('✅ Создан новый пользователь:', this.lastID);
+                    
+                    db.get('SELECT * FROM users WHERE id = ?', [this.lastID], (err, newUser) => {
+                        if (err) return reject(err);
+                        resolve(formatUser(newUser));
+                    });
+                }
+            );
+        });
     });
-    
-    if (!admin) {
-        return res.status(403).json({ error: 'Admin access required' });
-    }
-    
-    req.isCreator = admin.is_creator === 1;
-    req.adminId = admin.id;
-    next();
 }
 
-/**
- * Check if user is creator
- */
-async function requireCreator(req, res, next) {
-    const telegramId = req.telegramId;
-    
-    if (!telegramId) {
-        return res.status(401).json({ error: 'Authentication required' });
-    }
-    
+// Проверка: является ли пользователь создателем
+async function isCreator(telegramId) {
     const db = getDatabase();
-    const admin = await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         db.get(
             'SELECT * FROM admins WHERE telegram_id = ? AND is_creator = 1',
             [telegramId],
             (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
+                if (err) return reject(err);
+                resolve(!!row);
             }
         );
     });
-    
-    if (!admin) {
-        return res.status(403).json({ error: 'Creator access required' });
-    }
-    
-    req.isCreator = true;
-    req.adminId = admin.id;
-    next();
 }
 
-/**
- * Get or create user from Telegram ID
- */
-async function getOrCreateUser(telegramId, userData = {}) {
+// Проверка: является ли пользователь админом
+async function isAdmin(telegramId) {
     const db = getDatabase();
-    
-    // Try to get existing user
-    let user = await new Promise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
         db.get(
-            'SELECT * FROM users WHERE telegram_id = ?',
+            'SELECT * FROM admins WHERE telegram_id = ?',
             [telegramId],
             (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
+                if (err) return reject(err);
+                resolve(!!row);
             }
         );
     });
-    
-    if (user) {
-        // Update user data if provided
-        if (userData.name || userData.username) {
-            const updates = [];
-            const values = [];
-            
-            if (userData.name) {
-                updates.push('name = ?');
-                values.push(userData.name);
-                updates.push('initial = ?');
-                values.push(userData.name.charAt(0).toUpperCase());
-            }
-            if (userData.username !== undefined) {
-                updates.push('username = ?');
-                values.push(userData.username);
-            }
-            
-            if (updates.length > 0) {
-                updates.push('updated_at = ?');
-                values.push(Date.now());
-                values.push(telegramId);
-                
-                await new Promise((resolve, reject) => {
-                    db.run(
-                        `UPDATE users SET ${updates.join(', ')} WHERE telegram_id = ?`,
-                        values,
-                        (err) => {
-                            if (err) reject(err);
-                            else resolve();
-                        }
-                    );
-                });
-                
-                // Reload user
-                user = await new Promise((resolve, reject) => {
-                    db.get(
-                        'SELECT * FROM users WHERE telegram_id = ?',
-                        [telegramId],
-                        (err, row) => {
-                            if (err) reject(err);
-                            else resolve(row);
-                        }
-                    );
-                });
-            }
-        }
-        
-        return formatUser(user);
-    }
-    
-    // Create new user
-    const now = Date.now();
-    const name = userData.name || userData.first_name || 'Пользователь';
-    const initial = name.charAt(0).toUpperCase();
-    
-    const userId = await new Promise((resolve, reject) => {
-        db.run(
-            `INSERT INTO users (
-                telegram_id, name, username, initial, karma,
-                stats_published, stats_taken, stats_saved_kg,
-                stats_fast_pickups, stats_thanks, stats_reliability,
-                achievements, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 100, '[]', ?, ?)`,
-            [
-                telegramId,
-                name,
-                userData.username || null,
-                initial,
-                now,
-                now
-            ],
-            function(err) {
-                if (err) reject(err);
-                else resolve(this.lastID);
-            }
-        );
-    });
-    
-    // Get created user
-    user = await new Promise((resolve, reject) => {
+}
+
+// Проверка: есть ли уже создатель в системе
+async function hasCreator() {
+    const db = getDatabase();
+    return new Promise((resolve, reject) => {
         db.get(
-            'SELECT * FROM users WHERE id = ?',
-            [userId],
+            'SELECT * FROM admins WHERE is_creator = 1',
+            [],
             (err, row) => {
-                if (err) reject(err);
-                else resolve(row);
+                if (err) return reject(err);
+                resolve(!!row);
             }
         );
     });
-    
-    return formatUser(user);
 }
 
 function formatUser(user) {
@@ -215,11 +133,83 @@ function formatUser(user) {
     };
 }
 
+// Middleware: требует авторизации (но не админских прав)
+function requireAuth(req, res, next) {
+    const telegramId = getTelegramId(req);
+    
+    if (!telegramId) {
+        console.log('⚠️ requireAuth: нет telegram_id');
+        return res.status(401).json({ error: 'Требуется авторизация Telegram' });
+    }
+    
+    req.telegramId = telegramId;
+    next();
+}
+
+// Middleware: требует прав админа
+async function requireAdmin(req, res, next) {
+    const telegramId = getTelegramId(req);
+    
+    if (!telegramId) {
+        console.log('⚠️ requireAdmin: нет telegram_id');
+        return res.status(401).json({ error: 'Требуется авторизация Telegram' });
+    }
+    
+    try {
+        const adminCheck = await isAdmin(telegramId);
+        if (!adminCheck) {
+            console.log('⚠️ requireAdmin: нет прав администратора для', telegramId);
+            return res.status(403).json({ error: 'Требуются права администратора' });
+        }
+        
+        req.telegramId = telegramId;
+        req.isAdmin = true;
+        next();
+    } catch (error) {
+        console.error('❌ Ошибка проверки админа:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+}
+
+// Middleware: требует прав создателя
+async function requireCreator(req, res, next) {
+    const telegramId = getTelegramId(req);
+    
+    if (!telegramId) {
+        console.log('⚠️ requireCreator: нет telegram_id');
+        return res.status(401).json({ error: 'Требуется авторизация Telegram' });
+    }
+    
+    try {
+        const creatorCheck = await isCreator(telegramId);
+        if (!creatorCheck) {
+            console.log('⚠️ requireCreator: нет прав создателя для', telegramId);
+            return res.status(403).json({ error: 'Требуются права создателя' });
+        }
+        
+        req.telegramId = telegramId;
+        req.isCreator = true;
+        next();
+    } catch (error) {
+        console.error('❌ Ошибка проверки создателя:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+}
+
+// Для обратной совместимости
+function verifyTelegramAuth(req, res, next) {
+    return requireAuth(req, res, next);
+}
+
 module.exports = {
-    verifyTelegramAuth,
+    getTelegramId,
+    getOrCreateUser,
+    isCreator,
+    isAdmin,
+    hasCreator,
+    requireAuth,
     requireAdmin,
     requireCreator,
-    getOrCreateUser,
+    verifyTelegramAuth, // Для обратной совместимости
     formatUser
 };
-

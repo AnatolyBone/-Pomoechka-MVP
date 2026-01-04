@@ -1,96 +1,75 @@
+// server.js
 const express = require('express');
 const cors = require('cors');
-const bodyParser = require('body-parser');
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { initDatabase } = require('./db/database');
-const { verifyTelegramAuth } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-// CORS - разрешаем запросы с фронтенда
-const allowedOrigins = [
-    'http://localhost:8000',
-    'http://localhost:3000',
-    'http://127.0.0.1:8000',
-    // Добавьте ваш Netlify URL после деплоя
-    // 'https://pomoechka-xyz123.netlify.app',
-    // 'https://your-custom-domain.com'
-];
-
 app.use(cors({
-    origin: function (origin, callback) {
-        // Разрешаем запросы без origin (например, из Postman или мобильных приложений)
-        if (!origin) return callback(null, true);
-        
-        // В продакшне разрешаем все origin (для MVP это нормально)
-        // В будущем можно ограничить конкретными доменами
-        if (process.env.NODE_ENV === 'production') {
-            return callback(null, true);
-        }
-        
-        // В разработке проверяем список разрешенных
-        if (allowedOrigins.indexOf(origin) !== -1) {
-            callback(null, true);
-        } else {
-            // Разрешаем все для разработки
-            callback(null, true);
-        }
-    },
-    credentials: true,
+    origin: '*', // Для MVP разрешаем все. В продакшене укажите домены
     methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-ID']
+    allowedHeaders: ['Content-Type', 'X-Telegram-ID', 'X-Telegram-Data']
 }));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Логирование запросов
+app.use((req, res, next) => {
+    console.log(`📥 ${req.method} ${req.path}`, {
+        telegramId: req.headers['x-telegram-id'] || 'нет',
+        query: Object.keys(req.query).length > 0 ? req.query : undefined,
+        body: req.method === 'POST' || req.method === 'PATCH' ? 
+            (req.body.botToken ? { ...req.body, botToken: '***' } : req.body) : 
+            undefined
+    });
+    next();
+});
 
 // Health check
 app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        version: '1.0.0',
+        database: 'connected'
+    });
 });
 
-// === Items API ===
-const itemsRoutes = require('./routes/items');
-app.use('/api/items', itemsRoutes);
+// Роуты
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/items', require('./routes/items'));
+app.use('/api/reports', require('./routes/reports'));
+app.use('/api/admin', require('./routes/admin'));
+app.use('/api/analytics', require('./routes/analytics'));
 
-// === Users API ===
-const usersRoutes = require('./routes/users');
-app.use('/api/users', usersRoutes);
+// 404
+app.use((req, res) => {
+    console.log('⚠️ 404:', req.method, req.path);
+    res.status(404).json({ error: 'Endpoint not found' });
+});
 
-// === Reports API ===
-const reportsRoutes = require('./routes/reports');
-app.use('/api/reports', reportsRoutes);
-
-// === Analytics API ===
-const analyticsRoutes = require('./routes/analytics');
-app.use('/api/analytics', analyticsRoutes);
-
-// === Admin API ===
-const adminRoutes = require('./routes/admin');
-app.use('/api/admin', adminRoutes);
-
-// === Auth API ===
-const authRoutes = require('./routes/auth');
-app.use('/api/auth', authRoutes);
-
-// Error handling
+// Обработка ошибок
 app.use((err, req, res, next) => {
-    console.error('Error:', err);
-    res.status(500).json({ error: 'Internal server error', message: err.message });
+    console.error('❌ Server error:', err);
+    res.status(500).json({ 
+        error: 'Internal server error',
+        message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
 });
 
-// Initialize database and start server
+// Инициализация базы данных и запуск сервера
 initDatabase().then(() => {
     app.listen(PORT, () => {
-        console.log(`🚀 Server running on http://localhost:${PORT}`);
-        console.log(`📊 Health check: http://localhost:${PORT}/health`);
+        console.log(`🚀 Сервер запущен на порту ${PORT}`);
+        console.log(`📡 Health check: http://localhost:${PORT}/health`);
+        console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     });
 }).catch(err => {
-    console.error('❌ Failed to initialize database:', err);
+    console.error('❌ Ошибка инициализации базы данных:', err);
     process.exit(1);
 });
-
-module.exports = app;
-
