@@ -26,22 +26,29 @@ function initTelegram() {
             App.telegramUser = tg.initDataUnsafe.user;
             
             // Update user profile with Telegram data (через API если доступен)
-            if (hasBackend() && window.API) {
-                API.updateUser({
-                    telegramId: App.telegramUser.id,
-                    name: App.telegramUser.first_name,
-                    username: App.telegramUser.username ? `@${App.telegramUser.username}` : '',
-                    initial: App.telegramUser.first_name.charAt(0).toUpperCase()
-                }).catch(console.error);
-            } else {
-                const user = Data.getUser();
-                Data.updateUser({
-                    telegramId: App.telegramUser.id,
-                    name: App.telegramUser.first_name,
-                    username: App.telegramUser.username ? `@${App.telegramUser.username}` : '',
-                    initial: App.telegramUser.first_name.charAt(0).toUpperCase()
-                });
-            }
+            // Делаем это асинхронно, не блокируя инициализацию
+            (async () => {
+                try {
+                    if (hasBackend() && window.API) {
+                        await API.updateUser({
+                            telegramId: App.telegramUser.id,
+                            name: App.telegramUser.first_name,
+                            username: App.telegramUser.username ? `@${App.telegramUser.username}` : '',
+                            initial: App.telegramUser.first_name.charAt(0).toUpperCase()
+                        });
+                    } else {
+                        const user = Data.getUser();
+                        Data.updateUser({
+                            telegramId: App.telegramUser.id,
+                            name: App.telegramUser.first_name,
+                            username: App.telegramUser.username ? `@${App.telegramUser.username}` : '',
+                            initial: App.telegramUser.first_name.charAt(0).toUpperCase()
+                        });
+                    }
+                } catch (e) {
+                    console.error('Failed to update user:', e);
+                }
+            })();
         }
         
         // Apply Telegram theme

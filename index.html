@@ -29,13 +29,13 @@
         }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100">
+<body class="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 flex items-center justify-center p-4">
     
-    <!-- Desktop wrapper (скрыт в Telegram) -->
-    <div id="desktopWrapper" class="flex flex-col lg:flex-row items-center gap-8 justify-center min-h-screen p-4" style="display: none;">
+    <!-- Desktop wrapper -->
+    <div class="flex flex-col lg:flex-row items-center gap-8">
         
-        <!-- Info panel -->
-        <div class="max-w-md text-center lg:text-left">
+        <!-- Info panel (скрыта в Telegram) -->
+        <div id="infoPanel" class="max-w-md text-center lg:text-left">
             <h1 class="text-4xl font-extrabold text-gray-800 mb-4">
                 🗑️ Помоечка кормит
             </h1>
@@ -59,8 +59,8 @@
             </a>
         </div>
 
-        <!-- Phone mockup -->
-        <div class="phone-frame bg-gray-900 p-2">
+        <!-- Phone mockup (в Telegram показывается без обертки) -->
+        <div id="phoneWrapper" class="phone-frame bg-gray-900 p-2">
             <div class="w-full h-full bg-gray-50 rounded-[32px] overflow-hidden relative">
                 
                 <!-- Status bar -->
@@ -651,34 +651,53 @@
     <script src="js/app.js"></script>
     
     <script>
-        // Скрываем демо-телефон если открыто в Telegram
-        document.addEventListener('DOMContentLoaded', () => {
-            const isTelegram = !!window.Telegram?.WebApp?.initData;
-            const desktopWrapper = document.querySelector('.flex.flex-col.lg\\:flex-row');
-            const phoneFrame = document.querySelector('.phone-frame');
+        // Адаптация для Telegram - скрываем демо-панель, показываем только приложение
+        (function() {
+            // Проверяем сразу, не ждем DOMContentLoaded
+            const checkTelegram = () => {
+                const isTelegram = !!window.Telegram?.WebApp?.initData;
+                
+                if (isTelegram) {
+                    // В Telegram - скрываем инфо-панель и адаптируем телефон
+                    const style = document.createElement('style');
+                    style.id = 'telegram-style';
+                    style.textContent = `
+                        #infoPanel {
+                            display: none !important;
+                        }
+                        #phoneWrapper {
+                            width: 100% !important;
+                            height: 100vh !important;
+                            border-radius: 0 !important;
+                            box-shadow: none !important;
+                            max-width: 100% !important;
+                            margin: 0 !important;
+                        }
+                        body {
+                            padding: 0 !important;
+                            background: transparent !important;
+                        }
+                        .flex.flex-col.lg\\:flex-row {
+                            width: 100% !important;
+                            height: 100vh !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                        }
+                    `;
+                    if (!document.getElementById('telegram-style')) {
+                        document.head.appendChild(style);
+                    }
+                }
+            };
             
-            if (isTelegram) {
-                // В Telegram - показываем только телефон, без обертки
-                if (desktopWrapper) {
-                    desktopWrapper.style.display = 'none';
-                }
-                if (phoneFrame) {
-                    phoneFrame.style.width = '100%';
-                    phoneFrame.style.height = '100vh';
-                    phoneFrame.style.borderRadius = '0';
-                    phoneFrame.style.boxShadow = 'none';
-                    phoneFrame.parentElement.style.width = '100%';
-                    phoneFrame.parentElement.style.height = '100vh';
-                }
-                document.body.style.padding = '0';
-                document.body.style.background = 'transparent';
+            // Проверяем сразу и после загрузки
+            checkTelegram();
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', checkTelegram);
             } else {
-                // В браузере - показываем демо-версию
-                if (desktopWrapper) {
-                    desktopWrapper.style.display = 'flex';
-                }
+                checkTelegram();
             }
-        });
+        })();
     </script>
 
 </body>
