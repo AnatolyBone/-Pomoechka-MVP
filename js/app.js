@@ -973,35 +973,54 @@ function initTabs() {
 
 // === Initialize App ===
 document.addEventListener('DOMContentLoaded', async () => {
-    // Initialize Telegram WebApp
-    const isTelegram = initTelegram();
-    
-    // Initialize API (will use backend if available, otherwise localStorage)
-    let backendAvailable = false;
-    if (window.API) {
-        backendAvailable = await API.init();
-    }
-    
-    // Initialize storage (fallback) - только если бэкенд недоступен
-    if (window.Storage && !backendAvailable) {
-        Storage.init();
-    }
-    
-    // Show default screen (map as primary)
-    showScreen('map');
-    
-    // Init components
-    initTabs();
-    initUploadZone();
-    
-    // Bottom nav clicks
-    document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const screen = btn.dataset.screen;
-            if (screen) showScreen(screen);
+    try {
+        // Initialize Telegram WebApp
+        const isTelegram = initTelegram();
+        
+        // Initialize API (will use backend if available, otherwise localStorage)
+        let backendAvailable = false;
+        if (window.API) {
+            try {
+                backendAvailable = await API.init();
+            } catch (e) {
+                console.error('API init error:', e);
+                backendAvailable = false;
+            }
+        }
+        
+        // Initialize storage (fallback) - только если бэкенд недоступен
+        if (window.Storage && !backendAvailable) {
+            try {
+                Storage.init();
+            } catch (e) {
+                console.error('Storage init error:', e);
+            }
+        }
+        
+        // Show default screen (map as primary)
+        showScreen('map');
+        
+        // Init components
+        try {
+            initTabs();
+            initUploadZone();
+        } catch (e) {
+            console.error('Component init error:', e);
+        }
+        
+        // Bottom nav clicks
+        document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const screen = btn.dataset.screen;
+                if (screen) showScreen(screen);
+            });
         });
-    });
-    
-    // Log mode
-    console.log(`🗑️ Помоечка кормит ${isTelegram ? '(Telegram Mini App)' : '(Web)'}`);
+        
+        // Log mode
+        console.log(`🗑️ Помоечка кормит ${isTelegram ? '(Telegram Mini App)' : '(Web)'}`);
+    } catch (e) {
+        console.error('App initialization error:', e);
+        // Показываем экран даже если есть ошибки
+        showScreen('map');
+    }
 });
