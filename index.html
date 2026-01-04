@@ -500,10 +500,14 @@
         });
         
         async function initApp() {
+            console.log('🚀 Инициализация приложения...');
+            
             // Проверяем авторизацию через Telegram
             const isTelegram = !!window.Telegram?.WebApp?.initData;
+            console.log('📱 Telegram detected:', isTelegram);
             
             if (!isTelegram) {
+                console.log('❌ Не Telegram окружение');
                 document.getElementById('authNotTelegram').classList.remove('hidden');
                 document.getElementById('authStatus').classList.add('hidden');
                 return;
@@ -513,11 +517,15 @@
             if (window.Telegram?.WebApp) {
                 Telegram.WebApp.ready();
                 Telegram.WebApp.expand();
+                console.log('✅ Telegram WebApp инициализирован');
             }
             
             // Получаем пользователя из Telegram
             const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+            console.log('👤 Telegram user:', tgUser ? { id: tgUser.id, name: tgUser.first_name } : 'не найден');
+            
             if (!tgUser) {
+                console.error('❌ Пользователь Telegram не найден');
                 document.getElementById('authError').classList.remove('hidden');
                 document.getElementById('authStatus').classList.add('hidden');
                 return;
@@ -527,15 +535,21 @@
             let backendAvailable = false;
             if (window.API) {
                 try {
+                    console.log('🔄 Инициализация API...');
                     backendAvailable = await API.init();
+                    console.log('✅ API инициализирован, backend доступен:', backendAvailable);
                 } catch (e) {
-                    console.error('API init error:', e);
+                    console.error('❌ API init error:', e);
                 }
+            } else {
+                console.error('❌ API не найден');
             }
             
             // Получаем или создаем пользователя
             try {
+                console.log('👤 Получение пользователя...');
                 const user = await API.getCurrentUser();
+                console.log('✅ Пользователь получен:', user ? { id: user.id, name: user.name } : 'null');
                 
                 // Проверяем, является ли пользователь создателем/админом
                 const isAdmin = await API.isAdmin();
@@ -580,8 +594,22 @@
                 }
                 
             } catch (e) {
-                console.error('Auth error:', e);
-                document.getElementById('authError').classList.remove('hidden');
+                console.error('❌ Auth error:', e);
+                console.error('Error details:', {
+                    message: e.message,
+                    stack: e.stack,
+                    name: e.name
+                });
+                
+                // Показываем более детальную ошибку
+                const errorDiv = document.getElementById('authError');
+                if (errorDiv) {
+                    errorDiv.classList.remove('hidden');
+                    const errorText = errorDiv.querySelector('p:last-child');
+                    if (errorText) {
+                        errorText.textContent = `Ошибка: ${e.message || 'Неизвестная ошибка'}. Проверьте консоль для деталей.`;
+                    }
+                }
                 document.getElementById('authStatus').classList.add('hidden');
             }
         }

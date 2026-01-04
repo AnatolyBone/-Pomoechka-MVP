@@ -343,55 +343,88 @@ const API = {
 
     // === User API ===
     async getCurrentUser() {
+        // Сначала проверяем Telegram пользователя (обязательно)
+        const tgUser = ENV.getUser();
+        if (!tgUser) {
+            console.warn('⚠️ Telegram user not found, returning null');
+            return null;
+        }
+        
+        // Если есть бэкенд, пробуем получить пользователя оттуда (с таймаутом)
         if (hasBackend()) {
             try {
+                console.log('📡 Fetching user from backend...', `${CONFIG.API_URL}/api/users/me`);
+                
+                // Добавляем таймаут для запроса (5 секунд)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                
                 const response = await fetch(`${CONFIG.API_URL}/api/users/me`, {
-                    headers: this.getHeaders()
+                    headers: this.getHeaders(),
+                    signal: controller.signal
                 });
-                if (!response.ok) throw new Error('Failed to fetch user');
-                return response.json();
+                
+                clearTimeout(timeoutId);
+                
+                if (response.ok) {
+                    const user = await response.json();
+                    console.log('✅ User fetched from backend:', user);
+                    return user;
+                } else {
+                    console.warn('⚠️ Backend returned error:', response.status, 'falling back to localStorage');
+                }
             } catch (e) {
-                console.error('Failed to get user from backend:', e);
-                // Fallback to localStorage
+                if (e.name === 'AbortError') {
+                    console.warn('⚠️ Request timeout (5s), falling back to localStorage');
+                } else {
+                    console.warn('⚠️ Failed to get user from backend:', e.message, 'falling back to localStorage');
+                }
+                // Продолжаем с fallback
             }
         }
         
-        // Fallback: Сначала пробуем Telegram
-        const tgUser = ENV.getUser();
-        if (tgUser) {
-            // Получаем сохранённые данные пользователя
-            let savedUser = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.user) || 'null');
+        // Fallback: Используем данные из Telegram и localStorage
+        console.log('💾 Using localStorage fallback for user');
+        
+        // Получаем сохранённые данные пользователя
+        let savedUser = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.user) || 'null');
+        
+        if (!savedUser || savedUser.telegramId !== tgUser.id) {
+            // Новый пользователь или первый вход
+            console.log('👤 Creating new user from Telegram data');
+            savedUser = {
+                id: tgUser.id,
+                telegramId: tgUser.id,
+                name: tgUser.first_name,
+                username: tgUser.username ? `@${tgUser.username}` : '',
+                initial: tgUser.first_name.charAt(0).toUpperCase(),
+                karma: 0,
+                stats: {
+                    published: 0,
+                    taken: 0,
+                    savedKg: 0,
+                    fastPickups: 0,
+                    thanks: 0,
+                    reliability: 100
+                },
+                achievements: [],
+                createdAt: Date.now()
+            };
+            localStorage.setItem(CONFIG.STORAGE_KEYS.user, JSON.stringify(savedUser));
             
-            if (!savedUser || savedUser.telegramId !== tgUser.id) {
-                // Новый пользователь или первый вход
-                savedUser = {
-                    id: tgUser.id,
-                    telegramId: tgUser.id,
-                    name: tgUser.first_name,
-                    username: tgUser.username ? `@${tgUser.username}` : '',
-                    initial: tgUser.first_name.charAt(0).toUpperCase(),
-                    karma: 0,
-                    stats: {
-                        published: 0,
-                        taken: 0,
-                        savedKg: 0,
-                        fastPickups: 0,
-                        thanks: 0,
-                        reliability: 100
-                    },
-                    achievements: [],
-                    createdAt: Date.now()
-                };
-                localStorage.setItem(CONFIG.STORAGE_KEYS.user, JSON.stringify(savedUser));
-                
-                // Sync to cloud
-                if (ENV.isTelegram()) {
-                    this.cloudSet(CONFIG.CLOUD_KEYS.userData, JSON.stringify(savedUser));
+            // Sync to cloud
+            if (ENV.isTelegram()) {
+                try {
+                    await this.cloudSet(CONFIG.CLOUD_KEYS.userData, JSON.stringify(savedUser));
+                } catch (e) {
+                    console.warn('⚠️ Failed to sync to cloud:', e);
                 }
             }
-            
-            return savedUser;
         }
+        
+        console.log('✅ User from localStorage:', savedUser);
+        return savedUser;
+    },
 
         // Fallback для демо (не в Telegram)
         let demoUser = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.user) || 'null');
