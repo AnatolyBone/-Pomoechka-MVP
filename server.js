@@ -25,19 +25,23 @@ app.use(cors({
         // Разрешаем запросы без origin (например, из Postman или мобильных приложений)
         if (!origin) return callback(null, true);
         
-        // В продакшне можно использовать переменную окружения
+        // В продакшне разрешаем все origin (для MVP это нормально)
+        // В будущем можно ограничить конкретными доменами
         if (process.env.NODE_ENV === 'production') {
-            // Разрешаем все origin в продакшне (или укажите конкретные)
             return callback(null, true);
         }
         
-        if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+        // В разработке проверяем список разрешенных
+        if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
-            callback(null, true); // Временно разрешаем все для разработки
+            // Разрешаем все для разработки
+            callback(null, true);
         }
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-ID']
 }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
