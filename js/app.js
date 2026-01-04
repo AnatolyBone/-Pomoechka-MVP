@@ -11,8 +11,12 @@ const App = {
     selectedRadius: 2,
     searchQuery: '',
     uploadedPhoto: null,
-    telegramUser: null
+    telegramUser: null,
+    currentLocation: null
 };
+
+// Экспортируем App глобально
+window.App = App;
 
 // === Telegram WebApp Integration ===
 function initTelegram() {
@@ -607,10 +611,7 @@ function openChat(userId) {
     showToast('Чат скоро будет доступен!');
 }
 
-function openInMaps(lat, lng) {
-    const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-    window.open(url, '_blank');
-}
+// openInMaps теперь в index.html - показывает модалку выбора карты
 
 function toggleFavorite(itemId) {
     showToast('Добавлено в избранное!');
@@ -675,6 +676,47 @@ function requestGeolocation() {
             }
         );
     }
+}
+
+// Функция для кнопки определения местоположения в форме добавления
+function getCurrentLocation() {
+    const btn = document.getElementById('getLocationBtn');
+    const status = document.getElementById('locationStatus');
+    const info = document.getElementById('locationInfo');
+    
+    if (!('geolocation' in navigator)) {
+        showToast('⚠️ Геолокация не поддерживается');
+        return;
+    }
+    
+    if (status) status.textContent = '⏳';
+    
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            App.currentLocation = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude
+            };
+            
+            if (status) status.textContent = '✓';
+            if (info) {
+                info.textContent = `📍 ${App.currentLocation.lat.toFixed(6)}, ${App.currentLocation.lng.toFixed(6)}`;
+                info.classList.remove('hidden');
+            }
+            
+            showToast('📍 Геолокация определена');
+        },
+        (error) => {
+            if (status) status.textContent = '✗';
+            showToast('⚠️ Не удалось определить местоположение');
+            console.error('Geolocation error:', error);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        }
+    );
 }
 
 async function publishItem() {
@@ -971,42 +1013,13 @@ function initTabs() {
     setCategory(App.selectedCategory);
 }
 
-// === Initialize App ===
-document.addEventListener('DOMContentLoaded', async () => {
+// === Initialize App Components ===
+// Вызывается из index.html после авторизации
+function initAppComponents() {
     try {
-        // Initialize Telegram WebApp
-        const isTelegram = initTelegram();
-        
-        // Initialize API (will use backend if available, otherwise localStorage)
-        let backendAvailable = false;
-        if (window.API) {
-            try {
-                backendAvailable = await API.init();
-            } catch (e) {
-                console.error('API init error:', e);
-                backendAvailable = false;
-            }
-        }
-        
-        // Initialize storage (fallback) - только если бэкенд недоступен
-        if (window.Storage && !backendAvailable) {
-            try {
-                Storage.init();
-            } catch (e) {
-                console.error('Storage init error:', e);
-            }
-        }
-        
-        // Show default screen (map as primary)
-        showScreen('map');
-        
         // Init components
-        try {
-            initTabs();
-            initUploadZone();
-        } catch (e) {
-            console.error('Component init error:', e);
-        }
+        initTabs();
+        initUploadZone();
         
         // Bottom nav clicks
         document.querySelectorAll('.bottom-nav-btn').forEach(btn => {
@@ -1016,11 +1029,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         });
         
-        // Log mode
-        console.log(`🗑️ Помоечка кормит ${isTelegram ? '(Telegram Mini App)' : '(Web)'}`);
+        // Initialize Telegram WebApp
+        initTelegram();
+        
+        console.log('🗑️ Помоечка кормит (Telegram Mini App)');
     } catch (e) {
-        console.error('App initialization error:', e);
-        // Показываем экран даже если есть ошибки
-        showScreen('map');
+        console.error('Component initialization error:', e);
     }
-});
+}

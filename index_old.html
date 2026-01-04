@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Помоечка кормит 🗑️✨</title>
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- App Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+    
+    <!-- Telegram theme variables -->
+    <style>
+        :root {
+            --tg-theme-bg-color: #ffffff;
+            --tg-theme-text-color: #000000;
+            --tg-theme-hint-color: #999999;
+            --tg-theme-link-color: #2481cc;
+            --tg-theme-button-color: #10b981;
+            --tg-theme-button-text-color: #ffffff;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 flex items-center justify-center p-4">
+    
+    <!-- Desktop wrapper -->
+    <div class="flex flex-col lg:flex-row items-center gap-8">
+        
+        <!-- Info panel (скрыта в Telegram) -->
+        <div id="infoPanel" class="max-w-md text-center lg:text-left">
+            <h1 class="text-4xl font-extrabold text-gray-800 mb-4">
+                🗑️ Помоечка кормит
+            </h1>
+            <p class="text-lg text-gray-600 mb-4">
+                Telegram мини-приложение для обмена выброшенными вещами. 
+                Одному мусор — другому сокровище!
+            </p>
+            <p class="text-sm text-gray-500 mb-6">
+                ⚠️ Мы НЕ призываем мусорить! Приложение для вещей, которые <strong>уже лежат</strong> у контейнеров.
+            </p>
+            <div class="flex flex-wrap gap-3 justify-center lg:justify-start">
+                <span class="px-4 py-2 bg-white rounded-full text-sm font-semibold text-emerald-600 shadow">♻️ Экологично</span>
+                <span class="px-4 py-2 bg-white rounded-full text-sm font-semibold text-purple-600 shadow">🎮 Геймификация</span>
+                <span class="px-4 py-2 bg-white rounded-full text-sm font-semibold text-orange-600 shadow">📍 Карта</span>
+                <span class="px-4 py-2 bg-white rounded-full text-sm font-semibold text-blue-600 shadow">⏰ 6ч жизнь</span>
+            </div>
+            
+            <!-- Admin link -->
+            <a href="admin.html" class="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-full text-sm font-semibold hover:bg-gray-700 transition">
+                ⚙️ Админ-панель
+            </a>
+        </div>
+
+        <!-- Phone mockup (в Telegram показывается без обертки) -->
+        <div id="phoneWrapper" class="phone-frame bg-gray-900 p-2">
+            <div class="w-full h-full bg-gray-50 rounded-[32px] overflow-hidden relative">
+                
+                <!-- Status bar -->
+                <div class="bg-white px-6 py-2 flex justify-between items-center text-xs font-semibold text-gray-800 z-10 relative">
+                    <span>9:41</span>
+                    <div class="w-24 h-6 bg-black rounded-full"></div>
+                    <div class="flex gap-1">
+                        <span>📶</span>
+                        <span>🔋</span>
+                    </div>
+                </div>
+
+                <!-- Screen 1: Map (Primary) -->
+                <div id="screen-map" class="screen active h-full bg-gray-50">
+                    
+                    <!-- Header -->
+                    <div class="bg-white px-4 py-3 border-b border-gray-100 z-10 relative">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <h1 class="text-lg font-bold text-gray-800">📍 Карта находок</h1>
+                                <p class="text-xs text-gray-500">Москва, Хамовники</p>
+                            </div>
+                            <button onclick="showScreen('profile')" class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold shadow">
+                                А
+                            </button>
+                        </div>
+                        
+                        <!-- Radius selector -->
+                        <div class="flex gap-2">
+                            <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-semibold" data-radius="0.5" onclick="setRadius(0.5)">500м</button>
+                            <button class="radius-btn active px-3 py-1.5 bg-emerald-500 text-white rounded-full text-xs font-semibold" data-radius="2" onclick="setRadius(2)">2км</button>
+                            <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-semibold" data-radius="5" onclick="setRadius(5)">5км</button>
+                            <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-semibold" data-radius="10" onclick="setRadius(10)">10км</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Map Area -->
+                    <div class="flex-1 relative">
+                        <!-- Fake map background -->
+                        <div class="absolute inset-0 bg-gradient-to-br from-green-50 via-blue-50 to-indigo-50">
+                            <!-- Grid lines -->
+                            <div class="absolute inset-0 opacity-20">
+                                <div class="h-full w-full" style="background-image: linear-gradient(#ccc 1px, transparent 1px), linear-gradient(90deg, #ccc 1px, transparent 1px); background-size: 30px 30px;"></div>
+                            </div>
+                            
+                            <!-- Markers container -->
+                            <div id="mapMarkers">
+                                <!-- Marker 1 - Furniture -->
+                                <div class="map-marker absolute cursor-pointer pulse" style="top: 25%; left: 35%; transform: translate(-50%, -50%);" onclick="showItemDetail(1)">
+                                    <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-2xl shadow-lg border-2 border-white">
+                                        🛋️
+                                    </div>
+                                </div>
+                                
+                                <!-- Marker 2 - Books -->
+                                <div class="map-marker absolute cursor-pointer" style="top: 45%; left: 65%; transform: translate(-50%, -50%);" onclick="showItemDetail(2)">
+                                    <div class="w-12 h-12 bg-indigo-500 rounded-full flex items-center justify-center text-2xl shadow-lg border-2 border-white">
+                                        📚
+                                    </div>
+                                </div>
+                                
+                                <!-- Marker 3 - Electronics -->
+                                <div class="map-marker absolute cursor-pointer" style="top: 60%; left: 25%; transform: translate(-50%, -50%);" onclick="showItemDetail(4)">
+                                    <div class="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-2xl shadow-lg border-2 border-white">
+                                        📺
+                                    </div>
+                                </div>
+                                
+                                <!-- Cluster -->
+                                <div class="map-cluster absolute w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm cursor-pointer" style="top: 70%; left: 55%; transform: translate(-50%, -50%);">
+                                    +3
+                                </div>
+                            </div>
+                            
+                            <!-- Current location -->
+                            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                                <div class="w-4 h-4 bg-blue-500 rounded-full border-4 border-white shadow-lg"></div>
+                                <div class="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Bottom sheet preview -->
+                        <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl p-4 pb-20">
+                            <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
+                            
+                            <!-- Quick item preview -->
+                            <div class="flex items-center gap-3 mb-3" onclick="showItemDetail(1)">
+                                <div class="w-14 h-14 bg-amber-100 rounded-xl flex items-center justify-center text-2xl">🛋️</div>
+                                <div class="flex-1">
+                                    <p class="font-semibold text-gray-800">Диван в хорошем состоянии</p>
+                                    <p class="text-xs text-gray-500">350м • 🔥 5 мин назад</p>
+                                    <div class="timer-bar w-full mt-1" style="width: 95%"></div>
+                                </div>
+                                <button class="px-3 py-2 bg-emerald-500 text-white rounded-xl text-sm font-semibold">
+                                    →
+                                </button>
+                            </div>
+                            
+                            <p id="mapItemsCount" class="text-xs text-gray-500 text-center">
+                                4 находки в радиусе 2 км
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Floating Add Button -->
+                    <button onclick="showScreen('add')" class="floating-btn absolute bottom-36 right-4 w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center text-white text-2xl font-bold hover:bg-emerald-600 transition z-20">
+                        +
+                    </button>
+                    
+                    <!-- Bottom Nav -->
+                    <div class="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-around z-20">
+                        <button class="bottom-nav-btn flex flex-col items-center text-emerald-600" data-screen="map">
+                            <span class="text-xl">🗺️</span>
+                            <span class="text-xs font-semibold">Карта</span>
+                        </button>
+                        <button class="bottom-nav-btn flex flex-col items-center text-gray-400" data-screen="feed">
+                            <span class="text-xl">📋</span>
+                            <span class="text-xs">Лента</span>
+                        </button>
+                        <button class="bottom-nav-btn flex flex-col items-center text-gray-400" data-screen="add">
+                            <span class="text-xl">➕</span>
+                            <span class="text-xs">Добавить</span>
+                        </button>
+                        <button class="bottom-nav-btn flex flex-col items-center text-gray-400 relative" data-screen="profile">
+                            <span class="text-xl">👤</span>
+                            <span class="text-xs">Профиль</span>
+                            <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">2</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Screen 2: Feed -->
+                <div id="screen-feed" class="screen h-full bg-gray-50">
+                    
+                    <!-- Header -->
+                    <div class="bg-white px-4 py-3 border-b border-gray-100">
+                        <div class="flex items-center justify-between mb-3">
+                            <div>
+                                <h1 class="text-xl font-bold text-gray-800">Помоечка 🗑️✨</h1>
+                                <p class="text-xs text-gray-500">📍 Москва, Хамовники</p>
+                            </div>
+                            <button onclick="showScreen('profile')" class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold shadow">
+                                А
+                            </button>
+                        </div>
+                        
+                        <!-- Search -->
+                        <div class="relative">
+                            <input type="text" placeholder="Поиск: диван, стулья, книги..." 
+                                   class="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                   oninput="handleSearch(this.value)">
+                            <span class="absolute left-3 top-2.5">🔍</span>
+                        </div>
+                        
+                        <!-- Tabs / Categories -->
+                        <div class="flex gap-2 mt-3 overflow-x-auto pb-1">
+                            <button class="tab-btn active px-3 py-1.5 text-xs font-semibold border-b-2 border-emerald-500 text-emerald-600 whitespace-nowrap" data-category="all">🔥 Все</button>
+                            <button class="tab-btn px-3 py-1.5 text-xs font-semibold border-b-2 border-transparent text-gray-500 whitespace-nowrap" data-category="furniture">🛋️ Мебель</button>
+                            <button class="tab-btn px-3 py-1.5 text-xs font-semibold border-b-2 border-transparent text-gray-500 whitespace-nowrap" data-category="construction">🧱 Строй</button>
+                            <button class="tab-btn px-3 py-1.5 text-xs font-semibold border-b-2 border-transparent text-gray-500 whitespace-nowrap" data-category="electronics">📺 Техника</button>
+                            <button class="tab-btn px-3 py-1.5 text-xs font-semibold border-b-2 border-transparent text-gray-500 whitespace-nowrap" data-category="books">📚 Книги</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Important notice -->
+                    <div class="mx-4 mt-3 safety-banner rounded-xl p-2 text-xs text-amber-800">
+                        💡 <strong>Заметил → Отметил → Помог!</strong> Публикуйте то, что уже лежит у контейнеров.
+                    </div>
+                    
+                    <!-- Feed -->
+                    <div id="feedItems" class="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+                        
+                        <!-- Card 1 - Fresh -->
+                        <div class="card-item bg-white rounded-2xl shadow-sm overflow-hidden" onclick="showItemDetail(1)">
+                            <div class="relative">
+                                <div class="h-40 bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center text-6xl">
+                                    🛋️
+                                </div>
+                                <span class="fresh-badge absolute top-2 left-2 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                    🔥 5 мин назад
+                                </span>
+                                <span class="distance-badge absolute top-2 right-2 text-white text-xs font-bold px-2 py-1 rounded-full">
+                                    📍 350м
+                                </span>
+                                <div class="timer-bar absolute bottom-0 left-0" style="width: 95%"></div>
+                            </div>
+                            <div class="p-3">
+                                <h3 class="font-bold text-gray-800">Диван в хорошем состоянии</h3>
+                                <p class="text-xs text-gray-500 mt-1">ул. Льва Толстого, у подъезда 3</p>
+                                <div class="flex items-center justify-between mt-2">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-xs">М</div>
+                                        <span class="text-xs text-gray-600">Михаил • ⭐ 48</span>
+                                    </div>
+                                    <span class="text-xs text-emerald-600 font-semibold">⏱ 5ч 55мин</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Card 2 -->
+                        <div class="card-item bg-white rounded-2xl shadow-sm overflow-hidden" onclick="showItemDetail(2)">
+                            <div class="relative">
+                                <div class="h-40 bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center text-6xl">
+                                    📚
+                                </div>
+                                <span class="absolute top-2 right-2 bg-white/90 text-gray-700 text-xs font-bold px-2 py-1 rounded-full">
+                                    📍 1.2 км
+                                </span>
+                                <div class="timer-bar absolute bottom-0 left-0" style="width: 80%"></div>
+                            </div>
+                            <div class="p-3">
+                                <h3 class="font-bold text-gray-800">Коробка книг (фантастика)</h3>
+                                <p class="text-xs text-gray-500 mt-1">Комсомольский пр-т, 28</p>
+                                <div class="flex items-center justify-between mt-2">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-6 h-6 rounded-full bg-pink-100 flex items-center justify-center text-xs">Е</div>
+                                        <span class="text-xs text-gray-600">Елена • ⭐ 156</span>
+                                    </div>
+                                    <span class="text-xs text-gray-500">⏱ 4ч 30мин</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Card 3 - Taken -->
+                        <div class="card-item bg-white rounded-2xl shadow-sm overflow-hidden relative opacity-70">
+                            <div class="relative">
+                                <div class="h-40 bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center text-6xl">
+                                    🪴
+                                </div>
+                                <div class="taken-overlay absolute inset-0 flex items-center justify-center">
+                                    <span class="bg-white text-gray-800 font-bold px-4 py-2 rounded-full text-sm">
+                                        ✅ Забрали!
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="p-3">
+                                <h3 class="font-bold text-gray-800">Комнатные растения (3 шт)</h3>
+                                <p class="text-xs text-gray-500 mt-1">Фрунзенская наб., 16</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Card 4 - Expired -->
+                        <div class="card-item bg-white rounded-2xl shadow-sm overflow-hidden relative opacity-70">
+                            <div class="relative">
+                                <div class="h-40 bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center text-6xl">
+                                    🪵
+                                </div>
+                                <div class="expired-overlay absolute inset-0 flex items-center justify-center">
+                                    <span class="bg-white text-gray-800 font-bold px-4 py-2 rounded-full text-sm">
+                                        ⏰ Просрочено
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="p-3">
+                                <h3 class="font-bold text-gray-800">Доски и брус</h3>
+                                <p class="text-xs text-gray-500 mt-1">Большая Пироговская, 5</p>
+                            </div>
+                        </div>
+                        
+                    </div>
+                    
+                    <!-- Floating Add Button -->
+                    <button onclick="showScreen('add')" class="floating-btn absolute bottom-20 right-4 w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center text-white text-2xl font-bold hover:bg-emerald-600 transition z-10">
+                        +
+                    </button>
+                    
+                    <!-- Bottom Nav -->
+                    <div class="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-around">
+                        <button class="bottom-nav-btn flex flex-col items-center text-gray-400" data-screen="map">
+                            <span class="text-xl">🗺️</span>
+                            <span class="text-xs">Карта</span>
+                        </button>
+                        <button class="bottom-nav-btn flex flex-col items-center text-emerald-600" data-screen="feed">
+                            <span class="text-xl">📋</span>
+                            <span class="text-xs font-semibold">Лента</span>
+                        </button>
+                        <button class="bottom-nav-btn flex flex-col items-center text-gray-400" data-screen="add">
+                            <span class="text-xl">➕</span>
+                            <span class="text-xs">Добавить</span>
+                        </button>
+                        <button class="bottom-nav-btn flex flex-col items-center text-gray-400 relative" data-screen="profile">
+                            <span class="text-xl">👤</span>
+                            <span class="text-xs">Профиль</span>
+                            <span class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">2</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Screen 3: Add Item -->
+                <div id="screen-add" class="screen h-full bg-gray-50">
+                    
+                    <div class="bg-white px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+                        <button onclick="showScreen('map')" class="text-2xl">←</button>
+                        <h1 class="text-lg font-bold text-gray-800">Добавить находку</h1>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                        
+                        <!-- Important notice -->
+                        <div class="safety-banner rounded-xl p-3">
+                            <p class="text-sm text-amber-800">
+                                ⚠️ <strong>Важно:</strong> Публикуйте только то, что <strong>уже лежит</strong> у контейнеров. 
+                                Мы не призываем оставлять вещи на улице!
+                            </p>
+                        </div>
+                        
+                        <!-- Photo upload -->
+                        <div id="uploadZone" class="upload-zone rounded-2xl p-8 text-center bg-white cursor-pointer">
+                            <div class="text-5xl mb-2">📷</div>
+                            <p class="font-semibold text-gray-700">Сфотографируй находку</p>
+                            <p class="text-xs text-gray-500 mt-1">Обязательно для публикации</p>
+                        </div>
+                        
+                        <!-- Title -->
+                        <div class="bg-white rounded-2xl p-4">
+                            <label class="text-sm font-semibold text-gray-700 block mb-2">Название</label>
+                            <input id="itemTitle" type="text" placeholder="Что это? (диван, книги, стулья...)" 
+                                   class="w-full p-3 bg-gray-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                        
+                        <!-- Description -->
+                        <div class="bg-white rounded-2xl p-4">
+                            <label class="text-sm font-semibold text-gray-700 block mb-2">Описание</label>
+                            <textarea id="itemDescription" placeholder="Состояние, размер, особенности..." 
+                                      class="w-full h-20 p-3 bg-gray-50 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+                            <button class="mt-2 flex items-center gap-2 text-emerald-600 font-semibold text-sm">
+                                <span class="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">🎤</span>
+                                Записать голосом
+                            </button>
+                        </div>
+                        
+                        <!-- Categories -->
+                        <div class="bg-white rounded-2xl p-4">
+                            <label class="text-sm font-semibold text-gray-700 block mb-2">Категория</label>
+                            <div class="flex flex-wrap gap-2">
+                                <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm" data-category="furniture" onclick="selectCategory(this)">🛋️ Мебель</button>
+                                <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm" data-category="construction" onclick="selectCategory(this)">🧱 Стройматериалы</button>
+                                <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm" data-category="electronics" onclick="selectCategory(this)">📺 Техника</button>
+                                <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm" data-category="clothing" onclick="selectCategory(this)">👕 Одежда</button>
+                                <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm" data-category="books" onclick="selectCategory(this)">📚 Книги</button>
+                                <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm" data-category="plants" onclick="selectCategory(this)">🪴 Растения</button>
+                                <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm" data-category="other" onclick="selectCategory(this)">📦 Другое</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Location -->
+                        <div class="bg-white rounded-2xl p-4">
+                            <label class="text-sm font-semibold text-gray-700 block mb-2">Где находится?</label>
+                            <button class="w-full flex items-center gap-3 p-3 bg-emerald-50 rounded-xl text-emerald-700 font-semibold">
+                                <span class="text-xl">📍</span>
+                                <span>Определить автоматически</span>
+                                <span class="ml-auto">✓</span>
+                            </button>
+                            <input type="text" placeholder="Уточни: у подъезда 3, за домом..." 
+                                   class="w-full mt-2 p-3 bg-gray-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                        </div>
+                        
+                        <!-- Chat mode -->
+                        <div class="bg-white rounded-2xl p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="font-semibold text-gray-700">💬 Разрешить чат</p>
+                                    <p class="text-xs text-gray-500">Люди смогут написать тебе</p>
+                                </div>
+                                <div id="chatToggle" class="toggle-switch active" onclick="toggleChat()"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Lifetime notice -->
+                        <div class="bg-blue-50 rounded-xl p-3 text-sm text-blue-800">
+                            ⏰ Объявление будет активно <strong>6 часов</strong>. 
+                            Ты сможешь продлить его одним тапом.
+                        </div>
+                        
+                        <!-- Submit -->
+                        <button onclick="publishItem()" class="w-full bg-emerald-500 text-white font-bold py-4 rounded-2xl text-lg hover:bg-emerald-600 transition shadow-lg">
+                            Опубликовать 🚀
+                        </button>
+                        
+                        <!-- Motivation hint -->
+                        <p class="text-center text-xs text-gray-500">
+                            +10 кармы за публикацию • +25 если заберут
+                        </p>
+                        
+                    </div>
+                </div>
+
+                <!-- Screen 4: Profile -->
+                <div id="screen-profile" class="screen h-full bg-gray-50">
+                    
+                    <div class="bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-6 text-white">
+                        <button onclick="showScreen('map')" class="text-2xl mb-4">←</button>
+                        
+                        <div class="flex items-center gap-4">
+                            <div class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold backdrop-blur">
+                                А
+                            </div>
+                            <div>
+                                <h1 class="text-xl font-bold">Алексей</h1>
+                                <p class="text-emerald-100 text-sm">@alexey_eco</p>
+                                <p class="text-emerald-200 text-xs mt-1">📍 Москва, Хамовники</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Karma -->
+                        <div class="mt-4 flex items-center gap-3">
+                            <div class="karma-glow bg-gradient-to-r from-yellow-400 to-amber-500 px-4 py-2 rounded-full flex items-center gap-2">
+                                <span class="text-xl">⭐</span>
+                                <span id="userKarma" class="font-bold text-lg">247</span>
+                                <span class="text-sm opacity-80">кармы</span>
+                            </div>
+                            <span class="text-emerald-100 text-sm">🏆 Топ-15 района</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
+                        
+                        <!-- Stats -->
+                        <div id="userStats" class="grid grid-cols-3 gap-3">
+                            <div class="bg-white rounded-2xl p-4 text-center">
+                                <div class="text-2xl font-bold text-emerald-600">12</div>
+                                <div class="text-xs text-gray-500">Выложено</div>
+                            </div>
+                            <div class="bg-white rounded-2xl p-4 text-center">
+                                <div class="text-2xl font-bold text-purple-600">8</div>
+                                <div class="text-xs text-gray-500">Забрали</div>
+                            </div>
+                            <div class="bg-white rounded-2xl p-4 text-center">
+                                <div class="text-2xl font-bold text-orange-600">~35кг</div>
+                                <div class="text-xs text-gray-500">Спасено</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Subscriptions -->
+                        <div class="bg-white rounded-2xl p-4">
+                            <h3 class="font-bold text-gray-800 mb-3">🔔 Уведомления</h3>
+                            <p class="text-xs text-gray-500 mb-2">Категории:</p>
+                            <div class="flex flex-wrap gap-2 mb-3">
+                                <span class="sub-tag active px-3 py-1 bg-emerald-500 text-white rounded-full text-xs border">🛋️ Мебель</span>
+                                <span class="sub-tag active px-3 py-1 bg-emerald-500 text-white rounded-full text-xs border">📺 Техника</span>
+                                <span class="sub-tag px-3 py-1 bg-gray-100 rounded-full text-xs border border-gray-200">📚 Книги</span>
+                                <span class="sub-tag px-3 py-1 bg-gray-100 rounded-full text-xs border border-gray-200">🧱 Строй</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-2">Районы:</p>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="sub-tag active px-3 py-1 bg-emerald-500 text-white rounded-full text-xs">Хамовники</span>
+                                <span class="sub-tag active px-3 py-1 bg-emerald-500 text-white rounded-full text-xs">Арбат</span>
+                                <span class="sub-tag px-3 py-1 bg-gray-100 rounded-full text-xs">+ Добавить</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Achievements -->
+                        <div class="bg-white rounded-2xl p-4">
+                            <h3 class="font-bold text-gray-800 mb-3">🏅 Достижения</h3>
+                            <div id="achievementsList" class="flex gap-3 overflow-x-auto pb-2">
+                                <div class="badge flex-shrink-0 w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-200 rounded-2xl flex flex-col items-center justify-center">
+                                    <span class="text-2xl">🌱</span>
+                                    <span class="text-xs text-gray-600">Новичок</span>
+                                </div>
+                                <div class="badge flex-shrink-0 w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex flex-col items-center justify-center">
+                                    <span class="text-2xl">📦</span>
+                                    <span class="text-xs text-gray-600">Активист</span>
+                                </div>
+                                <div class="badge flex-shrink-0 w-16 h-16 bg-gradient-to-br from-yellow-100 to-amber-200 rounded-2xl flex flex-col items-center justify-center">
+                                    <span class="text-2xl">⚡</span>
+                                    <span class="text-xs text-gray-600">Молния</span>
+                                </div>
+                                <div class="badge flex-shrink-0 w-16 h-16 bg-gray-100 rounded-2xl flex flex-col items-center justify-center opacity-40">
+                                    <span class="text-2xl">🔒</span>
+                                    <span class="text-xs text-gray-400">???</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Thanks -->
+                        <div class="bg-white rounded-2xl p-4">
+                            <h3 class="font-bold text-gray-800 mb-3">💚 Благодарности</h3>
+                            <div class="space-y-3">
+                                <div class="flex items-center gap-3 p-2 bg-green-50 rounded-xl">
+                                    <div class="w-8 h-8 rounded-full bg-pink-200 flex items-center justify-center text-sm">О</div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-semibold">Ольга</p>
+                                        <p class="text-xs text-gray-500">Спасибо за книги! 📚</p>
+                                    </div>
+                                    <span class="text-xs text-gray-400">вчера</span>
+                                </div>
+                                <div class="flex items-center gap-3 p-2 bg-green-50 rounded-xl">
+                                    <div class="w-8 h-8 rounded-full bg-blue-200 flex items-center justify-center text-sm">Д</div>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-semibold">Дмитрий</p>
+                                        <p class="text-xs text-gray-500">Стулья отличные, спасибо!</p>
+                                    </div>
+                                    <span class="text-xs text-gray-400">3 дня</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- My items -->
+                        <div class="bg-white rounded-2xl p-4">
+                            <h3 class="font-bold text-gray-800 mb-3">📦 Мои объявления</h3>
+                            <div class="space-y-2">
+                                <div class="flex items-center gap-3 p-2 border border-gray-100 rounded-xl">
+                                    <span class="text-2xl">🪑</span>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-semibold">Стулья (4 шт)</p>
+                                        <p class="text-xs text-emerald-600">✅ Забрали</p>
+                                    </div>
+                                    <span class="text-xs text-gray-400">+25 ⭐</span>
+                                </div>
+                                <div class="flex items-center gap-3 p-2 border border-emerald-200 bg-emerald-50 rounded-xl">
+                                    <span class="text-2xl">🧹</span>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-semibold">Пылесос рабочий</p>
+                                        <p class="text-xs text-emerald-600">🟢 Активно • 2ч 15мин</p>
+                                    </div>
+                                    <button class="px-2 py-1 bg-emerald-500 text-white rounded-lg text-xs">Продлить</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Leaderboard teaser -->
+                        <div class="bg-gradient-to-r from-purple-100 to-pink-100 rounded-2xl p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="font-bold text-gray-800">🏆 Лидерборд района</h3>
+                                    <p class="text-sm text-gray-600">Ты на 15 месте!</p>
+                                </div>
+                                <button class="px-4 py-2 bg-white rounded-xl text-sm font-semibold text-purple-600">
+                                    Смотреть
+                                </button>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+
+                <!-- Screen 5: Item Detail -->
+                <div id="screen-detail" class="screen h-full bg-gray-50">
+                    <div id="detailContent">
+                        <!-- Content injected by JS -->
+                    </div>
+                </div>
+
+                <!-- Success Modal -->
+                <div id="successModal" class="hidden absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-3xl p-6 m-4 text-center animate-slide-up">
+                        <div class="text-6xl mb-4" id="successEmoji">🎉</div>
+                        <h2 class="text-xl font-bold text-gray-800 mb-2" id="successTitle">Опубликовано!</h2>
+                        <p class="text-gray-600 mb-4" id="successText">+10 кармы получено</p>
+                        <button onclick="hideModal()" class="w-full bg-emerald-500 text-white font-bold py-3 rounded-xl">
+                            Отлично!
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Report Modal -->
+                <div id="reportModal" class="hidden absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-3xl p-4 m-4 w-full max-w-sm animate-slide-up">
+                        <h2 class="text-lg font-bold text-gray-800 mb-4">⚠️ Пожаловаться</h2>
+                        <div class="space-y-2">
+                            <button onclick="submitReport('fake')" class="report-option w-full p-3 border border-gray-200 rounded-xl text-left text-sm hover:bg-red-50">
+                                🚫 Фейк / вещи нет на месте
+                            </button>
+                            <button onclick="submitReport('dangerous')" class="report-option w-full p-3 border border-gray-200 rounded-xl text-left text-sm hover:bg-red-50">
+                                ☢️ Опасные отходы
+                            </button>
+                            <button onclick="submitReport('spam')" class="report-option w-full p-3 border border-gray-200 rounded-xl text-left text-sm hover:bg-red-50">
+                                📢 Спам / реклама
+                            </button>
+                            <button onclick="submitReport('wrong_location')" class="report-option w-full p-3 border border-gray-200 rounded-xl text-left text-sm hover:bg-red-50">
+                                📍 Неверная геолокация
+                            </button>
+                        </div>
+                        <button onclick="document.getElementById('reportModal').classList.add('hidden')" class="w-full mt-4 py-3 text-gray-500 font-semibold">
+                            Отмена
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+    
+    <script>
+        // Адаптация для Telegram - скрываем демо-панель, показываем только приложение
+        (function() {
+            // Проверяем сразу, не ждем DOMContentLoaded
+            const checkTelegram = () => {
+                const isTelegram = !!window.Telegram?.WebApp?.initData;
+                
+                if (isTelegram) {
+                    // В Telegram - скрываем инфо-панель и адаптируем телефон
+                    const style = document.createElement('style');
+                    style.id = 'telegram-style';
+                    style.textContent = `
+                        #infoPanel {
+                            display: none !important;
+                        }
+                        #phoneWrapper {
+                            width: 100% !important;
+                            height: 100vh !important;
+                            border-radius: 0 !important;
+                            box-shadow: none !important;
+                            max-width: 100% !important;
+                            margin: 0 !important;
+                        }
+                        body {
+                            padding: 0 !important;
+                            background: transparent !important;
+                        }
+                        .flex.flex-col.lg\\:flex-row {
+                            width: 100% !important;
+                            height: 100vh !important;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                        }
+                    `;
+                    if (!document.getElementById('telegram-style')) {
+                        document.head.appendChild(style);
+                    }
+                }
+            };
+            
+            // Проверяем сразу и после загрузки
+            checkTelegram();
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', checkTelegram);
+            } else {
+                checkTelegram();
+            }
+        })();
+    </script>
+
+</body>
+</html>

@@ -46,152 +46,11 @@ const DEFAULT_SETTINGS = {
     chatMode: 'optional' // 'disabled', 'optional', 'required'
 };
 
-// === Mock Items ===
-const MOCK_ITEMS = [
-    {
-        id: 1,
-        title: 'Диван в хорошем состоянии',
-        description: 'Раскладной диван, механизм работает. Небольшие потертости на подлокотниках, но в целом нормальный. Стоит у подъезда.',
-        category: 'furniture',
-        photo: null,
-        emoji: '🛋️',
-        location: {
-            address: 'ул. Льва Толстого, 16',
-            details: 'у подъезда 3',
-            lat: 55.7558,
-            lng: 37.6173,
-            distance: 350
-        },
-        author: {
-            id: 101,
-            name: 'Михаил',
-            initial: 'М',
-            karma: 48,
-            color: 'blue'
-        },
-        status: 'active',
-        createdAt: Date.now() - 5 * 60 * 1000,
-        expiresAt: Date.now() + 6 * 60 * 60 * 1000,
-        views: 12,
-        chatEnabled: true
-    },
-    {
-        id: 2,
-        title: 'Коробка книг (фантастика)',
-        description: 'Собрание сочинений Стругацких, несколько книг Лема, Азимов. Всё в хорошем состоянии.',
-        category: 'books',
-        photo: null,
-        emoji: '📚',
-        location: {
-            address: 'Комсомольский пр-т, 28',
-            details: 'за домом у контейнеров',
-            lat: 55.7328,
-            lng: 37.5894,
-            distance: 1200
-        },
-        author: {
-            id: 102,
-            name: 'Елена',
-            initial: 'Е',
-            karma: 156,
-            color: 'pink'
-        },
-        status: 'active',
-        createdAt: Date.now() - 25 * 60 * 1000,
-        expiresAt: Date.now() + 5.5 * 60 * 60 * 1000,
-        views: 8,
-        chatEnabled: false
-    },
-    {
-        id: 3,
-        title: 'Комнатные растения (3 шт)',
-        description: 'Фикус, драцена и какой-то суккулент. Горшки пластиковые.',
-        category: 'plants',
-        photo: null,
-        emoji: '🪴',
-        location: {
-            address: 'Фрунзенская наб., 16',
-            details: 'справа от входа',
-            lat: 55.7298,
-            lng: 37.5794,
-            distance: 1800
-        },
-        author: {
-            id: 103,
-            name: 'Ольга',
-            initial: 'О',
-            karma: 23,
-            color: 'green'
-        },
-        status: 'taken',
-        createdAt: Date.now() - 2 * 60 * 60 * 1000,
-        expiresAt: Date.now() + 4 * 60 * 60 * 1000,
-        views: 34,
-        chatEnabled: true,
-        takenBy: { name: 'Дмитрий', initial: 'Д' }
-    },
-    {
-        id: 4,
-        title: 'Старый телевизор (рабочий)',
-        description: 'Samsung, диагональ 32 дюйма. Работает, но пульт потерялся. Кнопки на корпусе есть.',
-        category: 'electronics',
-        photo: null,
-        emoji: '📺',
-        location: {
-            address: 'ул. Усачёва, 11',
-            details: 'у мусорных баков',
-            lat: 55.7268,
-            lng: 37.5694,
-            distance: 2100
-        },
-        author: {
-            id: 104,
-            name: 'Андрей',
-            initial: 'А',
-            karma: 89,
-            color: 'purple'
-        },
-        status: 'active',
-        createdAt: Date.now() - 45 * 60 * 1000,
-        expiresAt: Date.now() + 5 * 60 * 60 * 1000,
-        views: 15,
-        chatEnabled: true
-    },
-    {
-        id: 5,
-        title: 'Доски и брус',
-        description: 'Остатки после ремонта. Доски разной длины, брус 50x50. Сухое дерево, не гнилое.',
-        category: 'construction',
-        photo: null,
-        emoji: '🪵',
-        location: {
-            address: 'Большая Пироговская, 5',
-            details: 'во дворе слева',
-            lat: 55.7368,
-            lng: 37.5594,
-            distance: 800
-        },
-        author: {
-            id: 105,
-            name: 'Сергей',
-            initial: 'С',
-            karma: 234,
-            color: 'orange'
-        },
-        status: 'expired',
-        createdAt: Date.now() - 8 * 60 * 60 * 1000,
-        expiresAt: Date.now() - 2 * 60 * 60 * 1000,
-        views: 42,
-        chatEnabled: false
-    }
-];
+// === Mock Items (удалены - используем только реальные данные из API) ===
+const MOCK_ITEMS = [];
 
-// === Mock User ===
-const MOCK_USER = {
-    id: 1,
-    telegramId: null,
-    name: 'Алексей',
-    username: '@alexey_eco',
+// === Mock User (удален - используем только реальные данные из API) ===
+const MOCK_USER = null;
     initial: 'А',
     city: 'Москва',
     district: 'Хамовники',
@@ -258,13 +117,14 @@ const Storage = {
         }
     },
 
-    // Initialize with mock data if empty
+    // Initialize with empty data (no mock data)
     init() {
+        // Инициализируем только пустые структуры, без демо-данных
         if (!this.get(STORAGE_KEYS.items)) {
-            this.set(STORAGE_KEYS.items, MOCK_ITEMS);
+            this.set(STORAGE_KEYS.items, []);
         }
         if (!this.get(STORAGE_KEYS.user)) {
-            this.set(STORAGE_KEYS.user, MOCK_USER);
+            this.set(STORAGE_KEYS.user, null);
         }
         if (!this.get(STORAGE_KEYS.settings)) {
             this.set(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
@@ -294,7 +154,7 @@ const Storage = {
 const Data = {
     // Items - with auto-expiration
     getItems() {
-        let items = Storage.get(STORAGE_KEYS.items) || MOCK_ITEMS;
+        let items = Storage.get(STORAGE_KEYS.items) || [];
         const now = Date.now();
         let changed = false;
 
@@ -420,7 +280,7 @@ const Data = {
 
     // User
     getUser() {
-        return Storage.get(STORAGE_KEYS.user) || MOCK_USER;
+        return Storage.get(STORAGE_KEYS.user) || null;
     },
 
     updateUser(updates) {
