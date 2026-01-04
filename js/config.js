@@ -123,6 +123,9 @@
         window.CONFIG = CONFIG;
         window.ENV = ENV;
         window.hasBackend = hasBackend;
+        
+        // Маркер готовности
+        window.CONFIG_READY = true;
 
         console.log('✅ config.js загружен:', {
             API_URL: CONFIG.API_URL,
@@ -176,6 +179,9 @@
         };
         
         window.hasBackend = function() { return true; };
+        
+        // Маркер готовности даже для fallback
+        window.CONFIG_READY = true;
         
         console.log('⚠️ Использован fallback CONFIG');
     }

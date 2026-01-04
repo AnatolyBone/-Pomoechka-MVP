@@ -516,16 +516,57 @@
     
     <!-- 5. Инициализация -->
     <script>
-        // Инициализация приложения
-        document.addEventListener('DOMContentLoaded', async function() {
-            console.log('📦 DOM загружен, ожидание CONFIG...');
+        // Функция для проверки готовности всех скриптов
+        function checkScriptsReady() {
+            // Проверяем, что CONFIG не только существует, но и готов
+            if (!window.CONFIG) {
+                return false;
+            }
             
-            // Ждем загрузки CONFIG (скрипты загружаются синхронно, но на всякий случай)
+            // Проверяем маркер готовности (если есть)
+            if (window.CONFIG_READY === false) {
+                return false;
+            }
+            
+            // Проверяем, что API_URL установлен
+            if (!window.CONFIG.API_URL) {
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Функция запуска приложения
+        async function startApp() {
+            console.log('📦 Запуск приложения...');
+            
+            // Ждем загрузки CONFIG (увеличено время для Telegram)
             let attempts = 0;
-            while (!window.CONFIG && attempts < 50) {
+            const maxAttempts = 100; // 10 секунд
+            
+            while (!checkScriptsReady() && attempts < maxAttempts) {
                 await new Promise(r => setTimeout(r, 100));
                 attempts++;
+                
+                if (attempts % 10 === 0) {
+                    console.log(`⏳ Ожидание скриптов... (${attempts}/${maxAttempts})`);
+                }
             }
+            
+            if (!checkScriptsReady()) {
+                console.error('❌ CONFIG не загружен после', maxAttempts, 'попыток');
+                console.error('Проверка window:', {
+                    CONFIG: window.CONFIG,
+                    CONFIG_READY: window.CONFIG_READY,
+                    API_URL: window.CONFIG?.API_URL,
+                    API: window.API,
+                    App: window.App,
+                    keys: Object.keys(window).filter(k => k.includes('CONFIG') || k.includes('API'))
+                });
+                return;
+            }
+            
+            console.log('✅ Все скрипты загружены, CONFIG:', window.CONFIG.API_URL);
             
             // Небольшая задержка для инициализации Telegram WebApp
             if (window.Telegram?.WebApp) {
@@ -538,7 +579,15 @@
             } else {
                 console.error('❌ initApp не найдена!');
             }
-        });
+        }
+        
+        // Запускаем приложение
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startApp);
+        } else {
+            // DOM уже загружен
+            startApp();
+        }
         
         // Показ ошибки
         function showError(message) {
@@ -760,14 +809,32 @@
         async function initApp() {
             console.log('🚀 Инициализация приложения...');
             
-            // Ждём загрузки CONFIG
+            // Ждём загрузки CONFIG (увеличено время ожидания для Telegram)
             let attempts = 0;
-            while (!window.CONFIG && attempts < 50) {
+            const maxAttempts = 100; // 10 секунд максимум
+            
+            while (!checkScriptsReady() && attempts < maxAttempts) {
                 await new Promise(r => setTimeout(r, 100));
                 attempts++;
+                
+                // Логируем каждые 10 попыток
+                if (attempts % 10 === 0) {
+                    console.log(`⏳ Ожидание CONFIG... (${attempts}/${maxAttempts})`, {
+                        CONFIG: !!window.CONFIG,
+                        CONFIG_READY: window.CONFIG_READY,
+                        API_URL: window.CONFIG?.API_URL
+                    });
+                }
             }
             
-            if (!window.CONFIG) {
+            if (!checkScriptsReady()) {
+                console.error('❌ CONFIG не загружен после', maxAttempts, 'попыток');
+                console.error('Проверка window:', {
+                    CONFIG: window.CONFIG,
+                    CONFIG_READY: window.CONFIG_READY,
+                    API_URL: window.CONFIG?.API_URL,
+                    keys: Object.keys(window).filter(k => k.includes('CONFIG'))
+                });
                 showError('CONFIG не загружен. Проверьте консоль и загрузку js/config.js');
                 return;
             }
