@@ -632,19 +632,53 @@ const API = {
     },
     
     async setupCreator(userData = {}) {
-        if (hasBackend()) {
-            const response = await fetch(`${CONFIG.API_URL}/api/auth/setup-creator`, {
+        if (!hasBackend()) {
+            throw new Error('Backend required for creator setup');
+        }
+        
+        const url = `${CONFIG.API_URL}/api/auth/setup-creator`;
+        const headers = this.getHeaders();
+        
+        console.log('📡 Setup creator request:', {
+            url,
+            headers,
+            userData: { ...userData, botToken: userData.botToken ? '***' : undefined }
+        });
+        
+        try {
+            const response = await fetch(url, {
                 method: 'POST',
-                headers: this.getHeaders(),
+                headers: headers,
                 body: JSON.stringify(userData)
             });
+            
+            console.log('📡 Setup creator response status:', response.status);
+            
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to setup creator');
+                let errorData;
+                try {
+                    errorData = await response.json();
+                } catch (e) {
+                    // Если не удалось распарсить JSON, используем текст
+                    const text = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${text || 'Unknown error'}`);
+                }
+                throw new Error(errorData.error || `HTTP ${response.status}: Failed to setup creator`);
             }
-            return response.json();
+            
+            const result = await response.json();
+            console.log('✅ Setup creator success:', result);
+            return result;
+        } catch (e) {
+            console.error('❌ Setup creator fetch error:', e);
+            
+            // Более детальная обработка ошибок
+            if (e.name === 'TypeError' && e.message.includes('fetch')) {
+                throw new Error(`Не удалось подключиться к серверу. Проверьте URL: ${CONFIG.API_URL}`);
+            }
+            
+            throw e;
         }
-        throw new Error('Backend required for creator setup');
     }
 };
 

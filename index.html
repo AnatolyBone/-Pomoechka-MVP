@@ -489,6 +489,11 @@
     <script src="js/app.js"></script>
     
     <script>
+        // Проверка доступности функций
+        function hasBackend() {
+            return window.CONFIG && !!window.CONFIG.API_URL;
+        }
+        
         // Инициализация приложения
         document.addEventListener('DOMContentLoaded', async () => {
             await initApp();
@@ -583,6 +588,7 @@
         
         async function setupCreator() {
             const token = document.getElementById('botTokenInput').value.trim();
+            const btn = document.querySelector('#creatorSetupModal button[onclick="setupCreator()"]');
             
             if (!token) {
                 alert('Введите токен бота');
@@ -595,10 +601,48 @@
                 return;
             }
             
+            // Проверяем доступность API
+            if (!window.API) {
+                alert('❌ API не инициализирован. Перезагрузите страницу.');
+                return;
+            }
+            
+            if (!hasBackend()) {
+                alert('❌ Бэкенд не настроен. Проверьте CONFIG.API_URL.');
+                console.error('CONFIG.API_URL:', window.CONFIG?.API_URL);
+                return;
+            }
+            
+            // Проверяем доступность бэкенда
             try {
-                // Проверяем токен через Telegram API (упрощенная проверка)
-                // В реальном приложении нужно проверить на бэкенде
+                const healthCheck = await fetch(`${window.CONFIG.API_URL}/health`);
+                if (!healthCheck.ok) {
+                    throw new Error('Health check failed');
+                }
+            } catch (e) {
+                alert(`❌ Бэкенд недоступен по адресу: ${window.CONFIG.API_URL}\n\nПроверьте:\n1. Подключение к интернету\n2. Доступность сервера\n3. Правильность URL в настройках`);
+                console.error('Backend health check failed:', e);
+                return;
+            }
+            
+            // Блокируем кнопку
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ Отправка...';
+            }
+            
+            try {
                 const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+                
+                if (!tgUser) {
+                    throw new Error('Данные пользователя Telegram не найдены');
+                }
+                
+                console.log('🔧 Настройка создателя...', {
+                    apiUrl: window.CONFIG?.API_URL,
+                    telegramId: tgUser.id,
+                    hasBackend: hasBackend()
+                });
                 
                 // Сохраняем создателя через API
                 const result = await API.setupCreator({
@@ -608,19 +652,45 @@
                     botToken: token // Отправляем на бэкенд для проверки
                 });
                 
+                console.log('✅ Результат настройки:', result);
+                
                 if (result.success) {
                     document.getElementById('creatorSetupModal').classList.add('hidden');
                     // Показываем кнопку админки
                     document.getElementById('adminBtn')?.classList.remove('hidden');
                     document.getElementById('adminBtnFeed')?.classList.remove('hidden');
                     document.getElementById('adminPanelBtn')?.classList.remove('hidden');
-                    showToast('✅ Создатель настроен!');
+                    
+                    if (window.showToast) {
+                        showToast('✅ Создатель настроен!');
+                    } else {
+                        alert('✅ Создатель успешно настроен!');
+                    }
                 } else {
-                    alert('Ошибка при настройке создателя');
+                    alert('Ошибка при настройке создателя: ' + (result.error || 'Неизвестная ошибка'));
                 }
             } catch (e) {
-                console.error('Setup creator error:', e);
-                alert(`Ошибка: ${e.message}`);
+                console.error('❌ Setup creator error:', e);
+                
+                let errorMessage = 'Ошибка при настройке создателя';
+                
+                if (e.message.includes('Failed to fetch') || e.message.includes('fetch')) {
+                    errorMessage = `❌ Не удалось подключиться к серверу.\n\n` +
+                        `Проверьте:\n` +
+                        `1. Подключение к интернету\n` +
+                        `2. URL бэкенда: ${CONFIG.API_URL}\n` +
+                        `3. Доступность сервера: ${CONFIG.API_URL}/health`;
+                } else if (e.message) {
+                    errorMessage = `❌ ${e.message}`;
+                }
+                
+                alert(errorMessage);
+            } finally {
+                // Разблокируем кнопку
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Подтвердить';
+                }
             }
         }
         
