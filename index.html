@@ -490,7 +490,42 @@
     
     <script>
         // Инициализация приложения
+        // Ждем загрузки всех скриптов
+        function waitForConfig() {
+            return new Promise((resolve) => {
+                if (window.CONFIG) {
+                    resolve();
+                    return;
+                }
+                
+                // Проверяем каждые 50мс
+                const interval = setInterval(() => {
+                    if (window.CONFIG) {
+                        clearInterval(interval);
+                        resolve();
+                    }
+                }, 50);
+                
+                // Таймаут 5 секунд
+                setTimeout(() => {
+                    clearInterval(interval);
+                    resolve(); // Разрешаем даже если CONFIG не загрузился
+                }, 5000);
+            });
+        }
+        
         document.addEventListener('DOMContentLoaded', async () => {
+            console.log('📦 DOM загружен, ожидание CONFIG...');
+            
+            // Ждем загрузки CONFIG
+            await waitForConfig();
+            
+            // Небольшая задержка для инициализации Telegram WebApp
+            if (window.Telegram?.WebApp) {
+                // Даем Telegram WebApp время на инициализацию
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
             await initApp();
         });
         
@@ -500,11 +535,16 @@
             // Проверяем, что CONFIG загружен
             if (!window.CONFIG) {
                 console.error('❌ CONFIG не загружен! Проверьте загрузку js/config.js');
+                console.error('Доступные глобальные объекты:', Object.keys(window).filter(k => 
+                    k.includes('CONFIG') || k.includes('Config') || k.includes('config')
+                ));
+                console.error('Все скрипты:', document.querySelectorAll('script[src]'));
+                
                 document.getElementById('authError').classList.remove('hidden');
                 document.getElementById('authStatus').classList.add('hidden');
                 const errorText = document.querySelector('#authError p:last-child');
                 if (errorText) {
-                    errorText.textContent = 'Ошибка: CONFIG не загружен. Проверьте консоль.';
+                    errorText.textContent = 'Ошибка: CONFIG не загружен. Проверьте консоль и загрузку js/config.js';
                 }
                 return;
             }
@@ -512,8 +552,23 @@
             console.log('✅ CONFIG загружен, API_URL:', window.CONFIG.API_URL);
             
             // Проверяем авторизацию через Telegram
-            const isTelegram = !!window.Telegram?.WebApp?.initData;
-            console.log('📱 Telegram detected:', isTelegram);
+            // Проверяем несколько способов определения Telegram
+            const hasTelegramWebApp = !!window.Telegram?.WebApp;
+            const hasInitData = !!window.Telegram?.WebApp?.initData;
+            const hasInitDataUnsafe = !!window.Telegram?.WebApp?.initDataUnsafe;
+            const hasUser = !!window.Telegram?.WebApp?.initDataUnsafe?.user;
+            
+            // Telegram считается доступным, если есть WebApp объект И (initData ИЛИ initDataUnsafe)
+            const isTelegram = hasTelegramWebApp && (hasInitData || hasInitDataUnsafe);
+            
+            console.log('📱 Telegram detection:', {
+                hasTelegramWebApp,
+                hasInitData,
+                hasInitDataUnsafe,
+                hasUser,
+                isTelegram,
+                version: window.Telegram?.WebApp?.version
+            });
             
             if (!isTelegram) {
                 console.log('❌ Не Telegram окружение');

@@ -2,6 +2,8 @@
    Помоечка кормит - Configuration
    =================================== */
 
+console.log('📋 Загрузка config.js...');
+
 const CONFIG = {
     // === App Info ===
     APP_NAME: 'Помоечка кормит',
@@ -89,3 +91,8 @@ const hasBackend = () => !!CONFIG.API_URL;
 window.CONFIG = CONFIG;
 window.ENV = ENV;
 window.hasBackend = hasBackend;
+
+console.log('✅ config.js загружен, CONFIG экспортирован:', {
+    API_URL: CONFIG.API_URL,
+    APP_NAME: CONFIG.APP_NAME
+});
