@@ -20,9 +20,10 @@ const CONFIG = {
     // URL бэкенда инжектируется из переменной окружения Netlify при деплое
     // Для локальной разработки: 'http://localhost:3000'
     // Для продакшна: значение из переменной окружения API_URL на Netlify
+    // ВАЖНО: Установите переменную API_URL на Netlify = https://pomoechka-mvp.onrender.com
     API_URL: window.location.hostname === 'localhost' 
         ? 'http://localhost:3000' 
-        : '{{API_URL}}', // Будет заменено скриптом inject-env.js из переменной окружения
+        : 'https://pomoechka-mvp.onrender.com', // Временно хардкод для проверки. После настройки переменных окружения верните '{{API_URL}}'
     
     // === Settings ===
     DEFAULT_ITEM_LIFETIME: 6 * 60 * 60 * 1000, // 6 часов
