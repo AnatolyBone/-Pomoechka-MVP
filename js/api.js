@@ -2,82 +2,111 @@
 (function() {
     'use strict';
     
+    // === ЗАЩИТА ОТ ПОВТОРНОЙ ЗАГРУЗКИ ===
+    if (window.API) {
+        console.log('⚠️ api.js уже загружен, пропускаем');
+        return;
+    }
+    
     console.log('📋 Загрузка api.js...');
     
-    const API = {
+    var API = {
         baseUrl: null,
         telegramId: null,
         telegramUser: null,
         
-        async init(user) {
-            this.baseUrl = window.CONFIG?.API_URL || 'https://pomoechka-mvp.onrender.com';
-            this.telegramUser = user || window.currentUser;
-            this.telegramId = this.telegramUser?.id?.toString();
+        init: function(user) {
+            var self = this;
+            self.baseUrl = window.CONFIG?.API_URL || 'https://pomoechka-mvp.onrender.com';
+            self.telegramUser = user || window.currentUser;
+            self.telegramId = self.telegramUser?.id ? String(self.telegramUser.id) : '';
             
-            console.log('🔌 API.init:', { baseUrl: this.baseUrl, telegramId: this.telegramId });
+            console.log('🔌 API.init:', { 
+                baseUrl: self.baseUrl, 
+                telegramId: self.telegramId 
+            });
             
             // Проверяем бэкенд
-            try {
-                const resp = await fetch(this.baseUrl + '/health', { method: 'GET' });
-                const data = await resp.json();
-                console.log('✅ Backend health:', data);
-                return true;
-            } catch (e) {
-                console.warn('⚠️ Backend недоступен:', e.message);
-                return false;
-            }
+            return fetch(self.baseUrl + '/health')
+                .then(function(resp) { 
+                    return resp.json(); 
+                })
+                .then(function(data) {
+                    console.log('✅ Backend health:', data);
+                    return true;
+                })
+                .catch(function(e) {
+                    console.warn('⚠️ Backend недоступен:', e.message);
+                    return false;
+                });
         },
         
-        getHeaders() {
-            const headers = { 'Content-Type': 'application/json' };
+        getHeaders: function() {
+            var headers = { 'Content-Type': 'application/json' };
+            
             if (this.telegramId) {
                 headers['X-Telegram-ID'] = this.telegramId;
             }
+            
             if (this.telegramUser) {
-                headers['X-Telegram-Data'] = JSON.stringify(this.telegramUser);
+                try {
+                    headers['X-Telegram-Data'] = JSON.stringify(this.telegramUser);
+                } catch (e) {}
             }
+            
             return headers;
         },
         
-        async request(endpoint, options = {}) {
-            const url = this.baseUrl + endpoint;
+        request: function(endpoint, options) {
+            var self = this;
+            options = options || {};
             
-            const config = {
+            var url = self.baseUrl + endpoint;
+            
+            var config = {
                 method: options.method || 'GET',
-                headers: this.getHeaders(),
-                ...options
+                headers: self.getHeaders()
             };
             
-            // Не перезаписываем headers если они уже есть в options
-            if (options.headers) {
-                config.headers = { ...config.headers, ...options.headers };
+            if (options.body) {
+                config.body = options.body;
             }
             
-            console.log('📤 Request:', config.method, endpoint);
+            console.log('📤', config.method, endpoint);
             
-            const response = await fetch(url, config);
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || `HTTP ${response.status}`);
-            }
-            
-            return data;
+            return fetch(url, config)
+                .then(function(response) {
+                    return response.json().then(function(data) {
+                        if (!response.ok) {
+                            var error = new Error(data.error || 'HTTP ' + response.status);
+                            throw error;
+                        }
+                        return data;
+                    });
+                });
         },
         
-        async getCurrentUser() {
-            return await this.request('/api/auth/me');
+        getCurrentUser: function() {
+            return this.request('/api/auth/me');
         },
         
-        async getItems(filters = {}) {
-            const params = new URLSearchParams(filters).toString();
-            return await this.request('/api/items' + (params ? '?' + params : ''));
+        getItems: function(filters) {
+            filters = filters || {};
+            var params = new URLSearchParams(filters).toString();
+            var endpoint = '/api/items' + (params ? '?' + params : '');
+            return this.request(endpoint);
         },
         
-        async createItem(data) {
-            return await this.request('/api/items', {
+        createItem: function(data) {
+            return this.request('/api/items', {
                 method: 'POST',
                 body: JSON.stringify(data)
+            });
+        },
+        
+        markItemTaken: function(id) {
+            return this.request('/api/items/' + id + '/taken', {
+                method: 'POST'
             });
         }
     };
