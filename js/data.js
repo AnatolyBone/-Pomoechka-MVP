@@ -1,0 +1,649 @@
+/* ===================================
+   Помоечка кормит - Data & Storage
+   =================================== */
+
+// === Categories ===
+const CATEGORIES = [
+    { id: 'furniture', icon: '🛋️', name: 'Мебель', color: 'amber' },
+    { id: 'construction', icon: '🧱', name: 'Стройматериалы', color: 'orange' },
+    { id: 'electronics', icon: '📺', name: 'Техника', color: 'blue' },
+    { id: 'clothing', icon: '👕', name: 'Одежда', color: 'pink' },
+    { id: 'books', icon: '📚', name: 'Книги', color: 'indigo' },
+    { id: 'plants', icon: '🪴', name: 'Растения', color: 'green' },
+    { id: 'other', icon: '📦', name: 'Прочее', color: 'gray' }
+];
+
+// === Report Reasons ===
+const REPORT_REASONS = [
+    { id: 'fake', icon: '🚫', text: 'Фейк / вещи нет на месте' },
+    { id: 'dangerous', icon: '⚠️', text: 'Опасные отходы' },
+    { id: 'spam', icon: '📢', text: 'Спам / реклама' },
+    { id: 'inappropriate', icon: '🔞', text: 'Неприемлемый контент' },
+    { id: 'wrong_location', icon: '📍', text: 'Неверная геолокация' }
+];
+
+// === Achievements (with fixed conditions) ===
+const ACHIEVEMENTS = [
+    { id: 'newbie', icon: '🌱', name: 'Новичок', desc: 'Первая публикация', condition: (u) => (u.stats?.published || 0) >= 1 },
+    { id: 'activist', icon: '📦', name: 'Активист', desc: '10 публикаций', condition: (u) => (u.stats?.published || 0) >= 10 },
+    { id: 'lightning', icon: '⚡', name: 'Молния', desc: 'Забрали за 30 мин', condition: (u) => (u.stats?.fastPickups || 0) >= 1 },
+    { id: 'hero', icon: '🏆', name: 'Герой района', desc: 'Топ-10 по карме', condition: (u) => (u.rankPosition || 999) <= 10 },
+    { id: 'ecowarrior', icon: '♻️', name: 'Эко-воин', desc: 'Спасено 100+ кг', condition: (u) => (u.stats?.savedKg || 0) >= 100 },
+    { id: 'helper', icon: '🤝', name: 'Помощник', desc: '5 благодарностей', condition: (u) => (u.stats?.thanks || 0) >= 5 },
+    { id: 'reliable', icon: '⭐', name: 'Надёжный', desc: '90% актуальных', condition: (u) => (u.stats?.reliability || 0) >= 90 }
+];
+
+// === Default Settings ===
+const DEFAULT_SETTINGS = {
+    city: 'Москва',
+    district: 'Хамовники',
+    radius: 2, // km
+    notifications: {
+        newItems: true,
+        categories: ['furniture', 'electronics'],
+        districts: ['Хамовники', 'Арбат']
+    },
+    chatMode: 'optional' // 'disabled', 'optional', 'required'
+};
+
+// === Mock Items ===
+const MOCK_ITEMS = [
+    {
+        id: 1,
+        title: 'Диван в хорошем состоянии',
+        description: 'Раскладной диван, механизм работает. Небольшие потертости на подлокотниках, но в целом нормальный. Стоит у подъезда.',
+        category: 'furniture',
+        photo: null,
+        emoji: '🛋️',
+        location: {
+            address: 'ул. Льва Толстого, 16',
+            details: 'у подъезда 3',
+            lat: 55.7558,
+            lng: 37.6173,
+            distance: 350
+        },
+        author: {
+            id: 101,
+            name: 'Михаил',
+            initial: 'М',
+            karma: 48,
+            color: 'blue'
+        },
+        status: 'active',
+        createdAt: Date.now() - 5 * 60 * 1000,
+        expiresAt: Date.now() + 6 * 60 * 60 * 1000,
+        views: 12,
+        chatEnabled: true
+    },
+    {
+        id: 2,
+        title: 'Коробка книг (фантастика)',
+        description: 'Собрание сочинений Стругацких, несколько книг Лема, Азимов. Всё в хорошем состоянии.',
+        category: 'books',
+        photo: null,
+        emoji: '📚',
+        location: {
+            address: 'Комсомольский пр-т, 28',
+            details: 'за домом у контейнеров',
+            lat: 55.7328,
+            lng: 37.5894,
+            distance: 1200
+        },
+        author: {
+            id: 102,
+            name: 'Елена',
+            initial: 'Е',
+            karma: 156,
+            color: 'pink'
+        },
+        status: 'active',
+        createdAt: Date.now() - 25 * 60 * 1000,
+        expiresAt: Date.now() + 5.5 * 60 * 60 * 1000,
+        views: 8,
+        chatEnabled: false
+    },
+    {
+        id: 3,
+        title: 'Комнатные растения (3 шт)',
+        description: 'Фикус, драцена и какой-то суккулент. Горшки пластиковые.',
+        category: 'plants',
+        photo: null,
+        emoji: '🪴',
+        location: {
+            address: 'Фрунзенская наб., 16',
+            details: 'справа от входа',
+            lat: 55.7298,
+            lng: 37.5794,
+            distance: 1800
+        },
+        author: {
+            id: 103,
+            name: 'Ольга',
+            initial: 'О',
+            karma: 23,
+            color: 'green'
+        },
+        status: 'taken',
+        createdAt: Date.now() - 2 * 60 * 60 * 1000,
+        expiresAt: Date.now() + 4 * 60 * 60 * 1000,
+        views: 34,
+        chatEnabled: true,
+        takenBy: { name: 'Дмитрий', initial: 'Д' }
+    },
+    {
+        id: 4,
+        title: 'Старый телевизор (рабочий)',
+        description: 'Samsung, диагональ 32 дюйма. Работает, но пульт потерялся. Кнопки на корпусе есть.',
+        category: 'electronics',
+        photo: null,
+        emoji: '📺',
+        location: {
+            address: 'ул. Усачёва, 11',
+            details: 'у мусорных баков',
+            lat: 55.7268,
+            lng: 37.5694,
+            distance: 2100
+        },
+        author: {
+            id: 104,
+            name: 'Андрей',
+            initial: 'А',
+            karma: 89,
+            color: 'purple'
+        },
+        status: 'active',
+        createdAt: Date.now() - 45 * 60 * 1000,
+        expiresAt: Date.now() + 5 * 60 * 60 * 1000,
+        views: 15,
+        chatEnabled: true
+    },
+    {
+        id: 5,
+        title: 'Доски и брус',
+        description: 'Остатки после ремонта. Доски разной длины, брус 50x50. Сухое дерево, не гнилое.',
+        category: 'construction',
+        photo: null,
+        emoji: '🪵',
+        location: {
+            address: 'Большая Пироговская, 5',
+            details: 'во дворе слева',
+            lat: 55.7368,
+            lng: 37.5594,
+            distance: 800
+        },
+        author: {
+            id: 105,
+            name: 'Сергей',
+            initial: 'С',
+            karma: 234,
+            color: 'orange'
+        },
+        status: 'expired',
+        createdAt: Date.now() - 8 * 60 * 60 * 1000,
+        expiresAt: Date.now() - 2 * 60 * 60 * 1000,
+        views: 42,
+        chatEnabled: false
+    }
+];
+
+// === Mock User ===
+const MOCK_USER = {
+    id: 1,
+    telegramId: null,
+    name: 'Алексей',
+    username: '@alexey_eco',
+    initial: 'А',
+    city: 'Москва',
+    district: 'Хамовники',
+    karma: 247,
+    rankPosition: 15,
+    stats: {
+        published: 12,
+        taken: 8,
+        savedKg: 35,
+        fastPickups: 2,
+        thanks: 6,
+        reliability: 92
+    },
+    achievements: ['newbie', 'activist', 'lightning'],
+    thanks: [
+        { from: 'Ольга', initial: 'О', color: 'pink', text: 'Спасибо за книги! 📚', date: 'вчера' },
+        { from: 'Дмитрий', initial: 'Д', color: 'blue', text: 'Стулья отличные, спасибо!', date: '3 дня' }
+    ],
+    subscriptions: {
+        categories: ['furniture', 'electronics'],
+        districts: ['Хамовники', 'Арбат', 'Пресненский']
+    }
+};
+
+// === Storage Keys ===
+const STORAGE_KEYS = {
+    items: 'pomoechka_items',
+    user: 'pomoechka_user',
+    settings: 'pomoechka_settings',
+    draft: 'pomoechka_draft',
+    reports: 'pomoechka_reports',
+    analytics: 'pomoechka_analytics'
+};
+
+// === Storage Functions ===
+const Storage = {
+    get(key) {
+        try {
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : null;
+        } catch (e) {
+            console.error('Storage get error:', e);
+            return null;
+        }
+    },
+
+    set(key, value) {
+        try {
+            localStorage.setItem(key, JSON.stringify(value));
+            return true;
+        } catch (e) {
+            console.error('Storage set error:', e);
+            return false;
+        }
+    },
+
+    remove(key) {
+        try {
+            localStorage.removeItem(key);
+            return true;
+        } catch (e) {
+            console.error('Storage remove error:', e);
+            return false;
+        }
+    },
+
+    // Initialize with mock data if empty
+    init() {
+        if (!this.get(STORAGE_KEYS.items)) {
+            this.set(STORAGE_KEYS.items, MOCK_ITEMS);
+        }
+        if (!this.get(STORAGE_KEYS.user)) {
+            this.set(STORAGE_KEYS.user, MOCK_USER);
+        }
+        if (!this.get(STORAGE_KEYS.settings)) {
+            this.set(STORAGE_KEYS.settings, DEFAULT_SETTINGS);
+        }
+        if (!this.get(STORAGE_KEYS.reports)) {
+            this.set(STORAGE_KEYS.reports, []);
+        }
+        if (!this.get(STORAGE_KEYS.analytics)) {
+            this.set(STORAGE_KEYS.analytics, {
+                totalItems: 5,
+                totalTaken: 1,
+                totalUsers: 6,
+                totalKarma: 597,
+                savedKg: 156,
+                dailyStats: []
+            });
+        }
+    },
+
+    // Clear all data
+    clear() {
+        Object.values(STORAGE_KEYS).forEach(key => this.remove(key));
+    }
+};
+
+// === Data Functions ===
+const Data = {
+    // Items - with auto-expiration
+    getItems() {
+        let items = Storage.get(STORAGE_KEYS.items) || MOCK_ITEMS;
+        const now = Date.now();
+        let changed = false;
+
+        // Auto-expire items
+        items = items.map(item => {
+            if (item.status === 'active' && item.expiresAt < now) {
+                changed = true;
+                return { ...item, status: 'expired' };
+            }
+            return item;
+        });
+
+        if (changed) {
+            Storage.set(STORAGE_KEYS.items, items);
+        }
+
+        return items;
+    },
+
+    getItem(id) {
+        const items = this.getItems();
+        return items.find(item => item.id === id);
+    },
+
+    addItem(item) {
+        const items = this.getItems();
+        const now = Date.now();
+        const newItem = {
+            id: now,
+            status: 'active',
+            createdAt: now,
+            expiresAt: now + 6 * 60 * 60 * 1000, // 6 hours
+            views: 0,
+            ...item
+        };
+        items.unshift(newItem);
+        Storage.set(STORAGE_KEYS.items, items);
+        
+        // Update analytics
+        this.updateAnalytics('totalItems', 1);
+        
+        return newItem;
+    },
+
+    updateItem(id, updates) {
+        const items = this.getItems();
+        const index = items.findIndex(item => item.id === id);
+        if (index !== -1) {
+            items[index] = { ...items[index], ...updates };
+            Storage.set(STORAGE_KEYS.items, items);
+            return items[index];
+        }
+        return null;
+    },
+
+    // Extended item - adds time instead of resetting
+    extendItem(id) {
+        const item = this.getItem(id);
+        if (!item) return null;
+
+        const base = Math.max(item.expiresAt, Date.now());
+        return this.updateItem(id, {
+            expiresAt: base + 6 * 60 * 60 * 1000,
+            status: 'active' // Reactivate if expired
+        });
+    },
+
+    markAsTaken(id) {
+        const item = this.getItem(id);
+        if (!item) return null;
+        
+        const updated = this.updateItem(id, { 
+            status: 'taken',
+            takenAt: Date.now()
+        });
+        
+        // Update analytics
+        this.updateAnalytics('totalTaken', 1);
+        
+        // Check for fast pickup achievement
+        if (item.createdAt && (Date.now() - item.createdAt < 30 * 60 * 1000)) {
+            this.updateUserStats('fastPickups', 1);
+        }
+        
+        return updated;
+    },
+
+    deleteItem(id) {
+        let items = this.getItems();
+        items = items.filter(item => item.id !== id);
+        Storage.set(STORAGE_KEYS.items, items);
+    },
+
+    // Filter items - defaults to active only (hides taken/expired)
+    filterItems({ category, status = 'active', maxDistance, search } = {}) {
+        let items = this.getItems();
+        
+        // Filter by status (default: only active)
+        // Pass status: null to get all items
+        if (status) {
+            items = items.filter(item => item.status === status);
+        }
+        
+        if (category && category !== 'all') {
+            items = items.filter(item => item.category === category);
+        }
+        
+        if (maxDistance) {
+            items = items.filter(item => (item.location?.distance || 0) <= maxDistance * 1000);
+        }
+        
+        if (search) {
+            const query = search.toLowerCase();
+            items = items.filter(item => 
+                item.title?.toLowerCase().includes(query) ||
+                item.description?.toLowerCase().includes(query) ||
+                item.location?.address?.toLowerCase().includes(query)
+            );
+        }
+        
+        return items;
+    },
+
+    // User
+    getUser() {
+        return Storage.get(STORAGE_KEYS.user) || MOCK_USER;
+    },
+
+    updateUser(updates) {
+        const user = this.getUser();
+        const updated = { ...user, ...updates };
+        Storage.set(STORAGE_KEYS.user, updated);
+        return updated;
+    },
+
+    addKarma(amount) {
+        const user = this.getUser();
+        user.karma = (user.karma || 0) + amount;
+        Storage.set(STORAGE_KEYS.user, user);
+
+        // Update karma in user's items
+        const items = this.getItems().map(item =>
+            item.author?.id === user.id
+                ? { ...item, author: { ...item.author, karma: user.karma } }
+                : item
+        );
+        Storage.set(STORAGE_KEYS.items, items);
+
+        // Update analytics
+        this.updateAnalytics('totalKarma', amount);
+
+        // Check for achievements
+        this.checkAchievements(user);
+
+        return user.karma;
+    },
+
+    updateUserStats(statName, increment = 1) {
+        const user = this.getUser();
+        if (!user.stats) user.stats = {};
+        user.stats[statName] = (user.stats[statName] || 0) + increment;
+        Storage.set(STORAGE_KEYS.user, user);
+        
+        // Check achievements after stat update
+        this.checkAchievements(user);
+        
+        return user.stats;
+    },
+
+    checkAchievements(user) {
+        if (!user.achievements) user.achievements = [];
+        
+        let updated = false;
+        ACHIEVEMENTS.forEach(ach => {
+            if (!user.achievements.includes(ach.id) && ach.condition(user)) {
+                user.achievements.push(ach.id);
+                updated = true;
+            }
+        });
+        
+        if (updated) {
+            Storage.set(STORAGE_KEYS.user, user);
+        }
+    },
+
+    // Reports
+    addReport(itemId, reason) {
+        const reports = Storage.get(STORAGE_KEYS.reports) || [];
+        reports.push({
+            id: Date.now(),
+            itemId,
+            reason,
+            createdAt: Date.now(),
+            status: 'pending'
+        });
+        Storage.set(STORAGE_KEYS.reports, reports);
+    },
+
+    getReports() {
+        return Storage.get(STORAGE_KEYS.reports) || [];
+    },
+
+    updateReportStatus(reportId, status) {
+        const reports = this.getReports();
+        const index = reports.findIndex(r => r.id === reportId);
+        if (index !== -1) {
+            reports[index].status = status;
+            Storage.set(STORAGE_KEYS.reports, reports);
+        }
+    },
+
+    // Analytics
+    getAnalytics() {
+        return Storage.get(STORAGE_KEYS.analytics) || {
+            totalItems: 0,
+            totalTaken: 0,
+            totalUsers: 0,
+            totalKarma: 0,
+            savedKg: 0
+        };
+    },
+
+    updateAnalytics(key, increment = 1) {
+        const analytics = this.getAnalytics();
+        analytics[key] = (analytics[key] || 0) + increment;
+        Storage.set(STORAGE_KEYS.analytics, analytics);
+    },
+
+    // Settings
+    getSettings() {
+        return Storage.get(STORAGE_KEYS.settings) || DEFAULT_SETTINGS;
+    },
+
+    updateSettings(updates) {
+        const settings = this.getSettings();
+        const updated = { ...settings, ...updates };
+        Storage.set(STORAGE_KEYS.settings, updated);
+        return updated;
+    },
+
+    // Draft
+    saveDraft(draft) {
+        Storage.set(STORAGE_KEYS.draft, draft);
+    },
+
+    getDraft() {
+        return Storage.get(STORAGE_KEYS.draft);
+    },
+
+    clearDraft() {
+        Storage.remove(STORAGE_KEYS.draft);
+    },
+
+    // Export all data (for admin)
+    exportAllData() {
+        return {
+            items: this.getItems(),
+            users: [this.getUser()], // In real app, would be all users
+            reports: this.getReports(),
+            analytics: this.getAnalytics(),
+            settings: this.getSettings(),
+            exportedAt: new Date().toISOString()
+        };
+    }
+};
+
+// === Utility Functions ===
+const Utils = {
+    // Format time ago
+    timeAgo(timestamp) {
+        if (!timestamp) return 'неизвестно';
+        const seconds = Math.floor((Date.now() - timestamp) / 1000);
+        
+        if (seconds < 60) return 'только что';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)} мин назад`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)} ч назад`;
+        return `${Math.floor(seconds / 86400)} дн назад`;
+    },
+
+    // Format time remaining
+    timeRemaining(expiresAt) {
+        if (!expiresAt) return 'неизвестно';
+        const seconds = Math.floor((expiresAt - Date.now()) / 1000);
+        
+        if (seconds <= 0) return 'истекло';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)} мин`;
+        return `${Math.floor(seconds / 3600)}ч ${Math.floor((seconds % 3600) / 60)}мин`;
+    },
+
+    // Format distance
+    formatDistance(meters) {
+        if (!meters && meters !== 0) return '?';
+        if (meters < 1000) return `${meters}м`;
+        return `${(meters / 1000).toFixed(1)}км`;
+    },
+
+    // Get category by id
+    getCategory(id) {
+        return CATEGORIES.find(cat => cat.id === id) || CATEGORIES[CATEGORIES.length - 1];
+    },
+
+    // Get achievement by id
+    getAchievement(id) {
+        return ACHIEVEMENTS.find(a => a.id === id);
+    },
+
+    // Check if item is expired
+    isExpired(item) {
+        return item?.expiresAt < Date.now();
+    },
+
+    // Get expiry percentage (for progress bar)
+    getExpiryPercent(item) {
+        if (!item?.expiresAt || !item?.createdAt) return 0;
+        
+        const total = item.expiresAt - item.createdAt;
+        if (!total || total <= 0) return 0;
+        
+        const remaining = item.expiresAt - Date.now();
+        return Math.max(0, Math.min(100, (remaining / total) * 100));
+    },
+
+    // Format date
+    formatDate(timestamp) {
+        if (!timestamp) return '';
+        const date = new Date(timestamp);
+        return date.toLocaleDateString('ru-RU', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    },
+
+    // Calculate distance between two points
+    calculateDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371e3; // Earth radius in meters
+        const φ1 = lat1 * Math.PI / 180;
+        const φ2 = lat2 * Math.PI / 180;
+        const Δφ = (lat2 - lat1) * Math.PI / 180;
+        const Δλ = (lng2 - lng1) * Math.PI / 180;
+
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                  Math.cos(φ1) * Math.cos(φ2) *
+                  Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        return Math.round(R * c);
+    }
+};
+
+// Don't auto-init here, let app.js do it

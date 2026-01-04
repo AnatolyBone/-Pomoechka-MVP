@@ -1,0 +1,285 @@
+/* ===================================
+   Помоечка кормит - Styles
+   =================================== */
+
+/* === Base === */
+* {
+    font-family: 'Nunito', sans-serif;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* === Phone Frame === */
+.phone-frame {
+    width: 375px;
+    height: 812px;
+    border-radius: 40px;
+    overflow: hidden;
+    box-shadow: 0 25px 80px rgba(0,0,0,0.3);
+}
+
+/* === Screens === */
+.screen {
+    display: none;
+}
+
+.screen.active {
+    display: flex;
+    flex-direction: column;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* === Cards === */
+.card-item {
+    transition: all 0.2s ease;
+}
+
+.card-item:active {
+    transform: scale(0.98);
+}
+
+/* === Tabs === */
+.tab-btn.active {
+    color: #10b981;
+    border-color: #10b981;
+}
+
+/* === Badges === */
+.badge {
+    animation: pop 0.3s ease;
+}
+
+@keyframes pop {
+    0% { transform: scale(0); }
+    70% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+/* === Buttons === */
+.floating-btn {
+    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+}
+
+.karma-glow {
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+}
+
+/* === Category Chips === */
+.category-chip {
+    transition: all 0.2s ease;
+}
+
+.category-chip.selected {
+    background: #10b981;
+    color: white;
+}
+
+/* === Upload Zone === */
+.upload-zone {
+    border: 2px dashed #d1d5db;
+    transition: all 0.2s ease;
+}
+
+.upload-zone:hover, 
+.upload-zone.dragover {
+    border-color: #10b981;
+    background: #ecfdf5;
+}
+
+.upload-zone.has-image {
+    border-style: solid;
+    border-color: #10b981;
+}
+
+/* === Distance & Status Badges === */
+.distance-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.fresh-badge {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.status-active {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.status-taken {
+    background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+}
+
+.status-expired {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+/* === Overlays === */
+.taken-overlay {
+    background: rgba(0,0,0,0.6);
+}
+
+.expired-overlay {
+    background: rgba(251, 191, 36, 0.8);
+}
+
+/* === Timer === */
+.timer-bar {
+    height: 3px;
+    background: linear-gradient(90deg, #10b981 0%, #fbbf24 50%, #ef4444 100%);
+    transition: width 0.3s ease;
+}
+
+/* === Map Markers === */
+.map-marker {
+    transition: transform 0.2s ease;
+}
+
+.map-marker:hover {
+    transform: scale(1.2);
+}
+
+.map-marker.pulse {
+    animation: markerPulse 2s infinite;
+}
+
+@keyframes markerPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    50% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+}
+
+/* === Cluster === */
+.map-cluster {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: 3px solid white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+/* === Radius Selector === */
+.radius-btn.active {
+    background: #10b981;
+    color: white;
+}
+
+/* === Report Modal === */
+.report-option {
+    transition: all 0.2s ease;
+}
+
+.report-option:hover {
+    background: #fef2f2;
+    border-color: #ef4444;
+}
+
+.report-option.selected {
+    background: #fef2f2;
+    border-color: #ef4444;
+}
+
+/* === Toggle Switch === */
+.toggle-switch {
+    width: 48px;
+    height: 26px;
+    background: #d1d5db;
+    border-radius: 13px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.toggle-switch.active {
+    background: #10b981;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.toggle-switch.active::after {
+    transform: translateX(22px);
+}
+
+/* === Subscription Tags === */
+.sub-tag {
+    transition: all 0.2s ease;
+}
+
+.sub-tag.active {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+}
+
+/* === Safety Banner === */
+.safety-banner {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border-left: 4px solid #f59e0b;
+}
+
+/* === Countdown Timer === */
+.countdown {
+    font-variant-numeric: tabular-nums;
+}
+
+/* === Animations === */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease;
+}
+
+.animate-slide-up {
+    animation: slideUp 0.3s ease;
+}
+
+/* === Scrollbar === */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+}
+
+/* === Toast Notifications === */
+.toast {
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toastOut {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-20px); }
+}

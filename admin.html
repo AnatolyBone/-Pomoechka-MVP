@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Помоечка — Админ-панель 🗑️</title>
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        .sidebar { transition: transform 0.3s ease; }
+        .sidebar.collapsed { transform: translateX(-100%); }
+        @media (min-width: 1024px) {
+            .sidebar.collapsed { transform: translateX(0); }
+        }
+        .stat-card { transition: all 0.2s ease; }
+        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
+        .status-badge { padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+        .status-active { background: #d1fae5; color: #065f46; }
+        .status-taken { background: #e0e7ff; color: #3730a3; }
+        .status-expired { background: #fef3c7; color: #92400e; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-resolved { background: #d1fae5; color: #065f46; }
+        .status-hidden { background: #fee2e2; color: #991b1b; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- Auth Screen -->
+    <div id="authScreen" class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
+            <div class="text-6xl mb-4">🔐</div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">Админ-панель</h1>
+            <p class="text-gray-500 mb-6">Доступ только для администраторов</p>
+            
+            <div id="authStatus" class="mb-6">
+                <div class="animate-pulse flex items-center justify-center gap-2 text-gray-500">
+                    <div class="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                    Проверка доступа...
+                </div>
+            </div>
+            
+            <div id="authError" class="hidden bg-red-50 text-red-700 p-4 rounded-xl mb-4">
+                <p class="font-semibold">⛔ Доступ запрещён</p>
+                <p class="text-sm mt-1">У вас нет прав администратора</p>
+            </div>
+            
+            <div id="authSetup" class="hidden bg-blue-50 text-blue-700 p-4 rounded-xl mb-4 text-left">
+                <p class="font-semibold mb-2">🔧 Первичная настройка</p>
+                <p class="text-sm mb-2">Это первый запуск. Ваш Telegram ID будет установлен как создатель:</p>
+                <code id="setupUserId" class="block bg-blue-100 px-3 py-2 rounded text-center font-mono text-lg"></code>
+                <button onclick="setupCreator()" class="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">
+                    ✓ Подтвердить и войти
+                </button>
+            </div>
+            
+            <div id="authNotTelegram" class="hidden bg-amber-50 text-amber-700 p-4 rounded-xl">
+                <p class="font-semibold">📱 Откройте в Telegram</p>
+                <p class="text-sm mt-1">Админ-панель работает только через Telegram Mini App</p>
+            </div>
+            
+            <a href="index.html" class="inline-block mt-4 text-gray-500 hover:text-gray-700">
+                ← Вернуться к приложению
+            </a>
+        </div>
+    </div>
+
+    <!-- Admin Panel (hidden until authenticated) -->
+    <div id="adminPanel" class="hidden">
+        
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white lg:translate-x-0">
+            <div class="flex items-center gap-3 p-6 border-b border-gray-800">
+                <span class="text-3xl">🗑️</span>
+                <div>
+                    <h1 class="font-bold text-lg">Помоечка</h1>
+                    <p class="text-xs text-gray-400">Админ-панель</p>
+                </div>
+            </div>
+            
+            <!-- Admin info -->
+            <div class="px-6 py-4 border-b border-gray-800">
+                <div class="flex items-center gap-3">
+                    <div id="adminAvatar" class="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center font-bold">?</div>
+                    <div>
+                        <p id="adminName" class="font-semibold text-sm">Загрузка...</p>
+                        <p id="adminRole" class="text-xs text-gray-400">Администратор</p>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="p-4 space-y-1">
+                <a href="#dashboard" onclick="showSection('dashboard')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg bg-emerald-600 text-white">
+                    <span>📊</span> Дашборд
+                </a>
+                <a href="#items" onclick="showSection('items')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white">
+                    <span>📦</span> Объявления
+                </a>
+                <a href="#reports" onclick="showSection('reports')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white">
+                    <span>⚠️</span> Жалобы
+                    <span id="reportsBadge" class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full hidden">0</span>
+                </a>
+                <a href="#settings" onclick="showSection('settings')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white">
+                    <span>⚙️</span> Настройки
+                </a>
+            </nav>
+            
+            <div class="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
+                <a href="index.html" class="flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white">
+                    <span>📱</span> К приложению
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="lg:ml-64 min-h-screen">
+            
+            <!-- Header -->
+            <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleSidebar()" class="lg:hidden text-gray-600 text-2xl">☰</button>
+                    <h2 id="sectionTitle" class="text-xl font-bold text-gray-800">📊 Дашборд</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <span class="text-sm text-gray-500" id="lastUpdate">—</span>
+                    <button onclick="refreshData()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-600">
+                        🔄 Обновить
+                    </button>
+                </div>
+            </header>
+
+            <!-- Dashboard Section -->
+            <section id="section-dashboard" class="p-6">
+                
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="stat-card bg-white rounded-2xl p-6 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-3xl">📦</span>
+                        </div>
+                        <p class="text-3xl font-bold text-gray-800" id="stat-total">0</p>
+                        <p class="text-sm text-gray-500">Всего объявлений</p>
+                    </div>
+                    
+                    <div class="stat-card bg-white rounded-2xl p-6 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-3xl">🟢</span>
+                        </div>
+                        <p class="text-3xl font-bold text-emerald-600" id="stat-active">0</p>
+                        <p class="text-sm text-gray-500">Активных</p>
+                    </div>
+                    
+                    <div class="stat-card bg-white rounded-2xl p-6 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-3xl">✅</span>
+                        </div>
+                        <p class="text-3xl font-bold text-blue-600" id="stat-taken">0</p>
+                        <p class="text-sm text-gray-500">Забрали</p>
+                    </div>
+                    
+                    <div class="stat-card bg-white rounded-2xl p-6 shadow-sm">
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-3xl">⚠️</span>
+                        </div>
+                        <p class="text-3xl font-bold text-amber-600" id="stat-reports">0</p>
+                        <p class="text-sm text-gray-500">Жалоб на модерации</p>
+                    </div>
+                </div>
+                
+                <!-- Charts Row -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <h3 class="font-bold text-gray-800 mb-4">📈 Статусы объявлений</h3>
+                        <canvas id="statusChart" height="200"></canvas>
+                    </div>
+                    
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <h3 class="font-bold text-gray-800 mb-4">🏷️ По категориям</h3>
+                        <canvas id="categoriesChart" height="200"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Recent Items -->
+                <div class="bg-white rounded-2xl p-6 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-gray-800">🕐 Последние объявления</h3>
+                        <a href="#items" onclick="showSection('items')" class="text-emerald-600 text-sm font-semibold">Все →</a>
+                    </div>
+                    <div id="recentItems" class="space-y-3">
+                        <p class="text-gray-500 text-center py-4">Загрузка...</p>
+                    </div>
+                </div>
+                
+            </section>
+
+            <!-- Items Section -->
+            <section id="section-items" class="p-6 hidden">
+                
+                <!-- Filters -->
+                <div class="bg-white rounded-2xl p-4 shadow-sm mb-6 flex flex-wrap gap-4 items-center">
+                    <input type="text" id="itemSearch" placeholder="🔍 Поиск..." 
+                           class="flex-1 min-w-[200px] px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                           oninput="filterItems()">
+                    
+                    <select id="itemStatus" class="px-4 py-2 border border-gray-200 rounded-lg" onchange="filterItems()">
+                        <option value="">Все статусы</option>
+                        <option value="active">🟢 Активные</option>
+                        <option value="taken">✅ Забрали</option>
+                        <option value="expired">⏰ Просрочено</option>
+                        <option value="hidden">🚫 Скрыто</option>
+                    </select>
+                    
+                    <button onclick="exportItems()" class="px-4 py-2 bg-gray-100 rounded-lg text-sm font-semibold hover:bg-gray-200">
+                        📥 Экспорт
+                    </button>
+                </div>
+                
+                <!-- Items Table -->
+                <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Находка</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Автор</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Статус</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Жалобы</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Дата</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemsTableBody">
+                            <tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+            </section>
+
+            <!-- Reports Section -->
+            <section id="section-reports" class="p-6 hidden">
+                
+                <div class="bg-white rounded-2xl p-4 shadow-sm mb-6 flex flex-wrap gap-4 items-center">
+                    <select id="reportStatus" class="px-4 py-2 border border-gray-200 rounded-lg" onchange="filterReports()">
+                        <option value="">Все жалобы</option>
+                        <option value="pending">⏳ На рассмотрении</option>
+                        <option value="resolved">✅ Решено</option>
+                    </select>
+                    
+                    <div class="flex-1"></div>
+                    
+                    <span class="text-sm text-gray-500" id="pendingCount">Загрузка...</span>
+                </div>
+                
+                <!-- Reports List -->
+                <div id="reportsList" class="space-y-4">
+                    <p class="text-gray-500 text-center py-8">Загрузка...</p>
+                </div>
+                
+            </section>
+
+            <!-- Settings Section -->
+            <section id="section-settings" class="p-6 hidden">
+                
+                <div class="max-w-2xl space-y-6">
+                    
+                    <!-- Creator Only: Admin Management -->
+                    <div id="creatorSettings" class="hidden bg-white rounded-2xl p-6 shadow-sm">
+                        <h3 class="font-bold text-gray-800 mb-4">👑 Управление администраторами</h3>
+                        <p class="text-sm text-gray-500 mb-4">Только создатель может управлять этим разделом</p>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ID Создателя</label>
+                                <input type="text" id="creatorIdDisplay" readonly
+                                       class="w-full px-4 py-2 bg-gray-100 rounded-lg font-mono">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Добавить администратора (Telegram ID)</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="newAdminId" placeholder="123456789"
+                                           class="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                                    <button onclick="addAdmin()" class="px-4 py-2 bg-emerald-500 text-white rounded-lg font-semibold hover:bg-emerald-600">
+                                        Добавить
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Текущие админы</label>
+                                <div id="adminsList" class="space-y-2">
+                                    <p class="text-gray-500 text-sm">Нет дополнительных админов</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- General Settings -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <h3 class="font-bold text-gray-800 mb-4">⚙️ Общие настройки</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Время жизни объявления (часов)</label>
+                                <input type="number" id="settingLifetime" value="6" min="1" max="24" 
+                                       class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                            </div>
+                            
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="font-medium text-gray-700">Требовать фото</p>
+                                    <p class="text-sm text-gray-500">Объявления без фото не публикуются</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="settingRequirePhoto" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
+                            
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="font-medium text-gray-700">Автоскрытие при жалобах</p>
+                                    <p class="text-sm text-gray-500">Скрывать после 3 жалоб</p>
+                                </div>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" id="settingAutoHide" checked class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Karma Settings -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <h3 class="font-bold text-gray-800 mb-4">⭐ Система кармы</h3>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">За публикацию</label>
+                                <input type="number" id="karmaPublish" value="10" min="0" max="100" 
+                                       class="w-full px-4 py-2 border border-gray-200 rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Если забрали</label>
+                                <input type="number" id="karmaTaken" value="25" min="0" max="100" 
+                                       class="w-full px-4 py-2 border border-gray-200 rounded-lg">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Danger Zone -->
+                    <div class="bg-red-50 rounded-2xl p-6 border border-red-200">
+                        <h3 class="font-bold text-red-800 mb-4">⚠️ Опасная зона</h3>
+                        
+                        <div class="flex flex-wrap gap-3">
+                            <button onclick="clearExpired()" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200">
+                                🗑️ Удалить просроченные
+                            </button>
+                            
+                            <button onclick="exportAllData()" class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold hover:bg-blue-200">
+                                📥 Экспорт данных
+                            </button>
+                            
+                            <button onclick="clearAllData()" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700">
+                                ☠️ Очистить всё
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Save Button -->
+                    <button onclick="saveSettings()" class="w-full py-3 bg-emerald-500 text-white font-bold rounded-xl hover:bg-emerald-600 transition">
+                        💾 Сохранить настройки
+                    </button>
+                    
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        // === Admin Panel Logic ===
+        
+        let currentSection = 'dashboard';
+        let isAuthenticated = false;
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+        });
+        
+        // === Authentication ===
+        async function checkAuth() {
+            const authStatus = document.getElementById('authStatus');
+            const authError = document.getElementById('authError');
+            const authSetup = document.getElementById('authSetup');
+            const authNotTelegram = document.getElementById('authNotTelegram');
+            
+            // Инициализируем Telegram WebApp
+            if (window.Telegram?.WebApp) {
+                Telegram.WebApp.ready();
+                Telegram.WebApp.expand();
+            }
+            
+            // Проверяем, запущено ли в Telegram
+            if (!ENV.isTelegram()) {
+                authStatus.classList.add('hidden');
+                authNotTelegram.classList.remove('hidden');
+                
+                // Для разработки: разрешаем доступ в браузере
+                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                    console.log('🔧 Dev mode: bypassing auth');
+                    setTimeout(() => {
+                        showAdminPanel({ first_name: 'Dev', id: 'dev' }, true);
+                    }, 1000);
+                }
+                return;
+            }
+            
+            const user = ENV.getUser();
+            const userId = ENV.getUserId();
+            
+            if (!user || !userId) {
+                authStatus.classList.add('hidden');
+                authError.classList.remove('hidden');
+                return;
+            }
+            
+            // Проверяем через API, установлен ли создатель
+            try {
+                const adminCheck = await API.isAdmin();
+                const isCreator = await API.isCreator();
+                
+                if (adminCheck) {
+                    showAdminPanel(user, isCreator);
+                    return;
+                }
+                
+                // Если не админ, проверяем, может быть нужно создать создателя
+                // Пробуем получить настройки админа - если ошибка, значит создателя нет
+                try {
+                    await API.getAdminSettings();
+                } catch (e) {
+                    // Создателя нет - предлагаем создать
+                    authStatus.classList.add('hidden');
+                    authSetup.classList.remove('hidden');
+                    document.getElementById('setupUserId').textContent = userId;
+                    return;
+                }
+                
+                // Админа нет
+                authStatus.classList.add('hidden');
+                authError.classList.remove('hidden');
+            } catch (error) {
+                console.error('Auth check error:', error);
+                // Если бэкенд недоступен, используем старую логику
+                if (!CONFIG.CREATOR_ID) {
+                    authStatus.classList.add('hidden');
+                    authSetup.classList.remove('hidden');
+                    document.getElementById('setupUserId').textContent = userId;
+                } else if (ENV.isAdmin()) {
+                    showAdminPanel(user, ENV.isCreator());
+                } else {
+                    authStatus.classList.add('hidden');
+                    authError.classList.remove('hidden');
+                }
+            }
+        }
+        
+        async function setupCreator() {
+            const userId = ENV.getUserId();
+            const user = ENV.getUser();
+            
+            try {
+                const result = await API.setupCreator({
+                    name: user.first_name,
+                    username: user.username,
+                    first_name: user.first_name
+                });
+                
+                if (result.success) {
+                    showAdminPanel(user, true);
+                } else {
+                    alert('Ошибка при создании создателя');
+                }
+            } catch (error) {
+                console.error('Setup creator error:', error);
+                alert(`Ошибка: ${error.message}\n\nЕсли бэкенд недоступен, добавьте в js/config.js:\n\nCREATOR_ID: ${userId}`);
+                
+                // Fallback для демо
+                localStorage.setItem('pomoechka_creator_id', userId);
+                CONFIG.CREATOR_ID = userId;
+                showAdminPanel(user, true);
+            }
+        }
+        
+        function showAdminPanel(user, isCreator) {
+            isAuthenticated = true;
+            
+            document.getElementById('authScreen').classList.add('hidden');
+            document.getElementById('adminPanel').classList.remove('hidden');
+            
+            // Update admin info
+            document.getElementById('adminAvatar').textContent = user.first_name?.charAt(0) || '?';
+            document.getElementById('adminName').textContent = user.first_name || 'Admin';
+            document.getElementById('adminRole').textContent = isCreator ? '👑 Создатель' : 'Администратор';
+            
+            // Show creator settings if creator
+            if (isCreator) {
+                document.getElementById('creatorSettings').classList.remove('hidden');
+                loadCreatorSettings();
+            }
+            
+            // Load data
+            loadDashboard();
+            loadItems();
+            loadReports();
+        }
+        
+        // === Navigation ===
+        function showSection(sectionId) {
+            currentSection = sectionId;
+            
+            document.querySelectorAll('[id^="section-"]').forEach(s => s.classList.add('hidden'));
+            document.getElementById('section-' + sectionId)?.classList.remove('hidden');
+            
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('bg-emerald-600', 'text-white');
+                link.classList.add('text-gray-300');
+            });
+            document.querySelector(`[href="#${sectionId}"]`)?.classList.add('bg-emerald-600', 'text-white');
+            document.querySelector(`[href="#${sectionId}"]`)?.classList.remove('text-gray-300');
+            
+            const titles = { 'dashboard': '📊 Дашборд', 'items': '📦 Объявления', 'reports': '⚠️ Жалобы', 'settings': '⚙️ Настройки' };
+            document.getElementById('sectionTitle').textContent = titles[sectionId] || sectionId;
+        }
+        
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('collapsed');
+        }
+        
+        // === Dashboard ===
+        async function loadDashboard() {
+            try {
+                const analytics = await API.getAnalytics();
+                
+                document.getElementById('stat-total').textContent = analytics.totalItems;
+                document.getElementById('stat-active').textContent = analytics.activeItems;
+                document.getElementById('stat-taken').textContent = analytics.takenItems;
+                document.getElementById('stat-reports').textContent = analytics.pendingReports;
+                
+                // Update reports badge
+                const badge = document.getElementById('reportsBadge');
+                if (analytics.pendingReports > 0) {
+                    badge.textContent = analytics.pendingReports;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+                
+                // Load recent items
+                const items = await API.getItems({});
+                renderRecentItems(items.slice(0, 5));
+                
+                // Render charts
+                renderCharts(analytics, items);
+                
+                document.getElementById('lastUpdate').textContent = 'Обновлено: ' + new Date().toLocaleTimeString('ru');
+            } catch (e) {
+                console.error('Dashboard error:', e);
+            }
+        }
+        
+        function renderRecentItems(items) {
+            const container = document.getElementById('recentItems');
+            if (items.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">Нет объявлений</p>';
+                return;
+            }
+            
+            container.innerHTML = items.map(item => `
+                <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
+                    <span class="text-2xl">${item.emoji || '📦'}</span>
+                    <div class="flex-1">
+                        <p class="font-medium text-gray-800">${escapeHtml(item.title)}</p>
+                        <p class="text-sm text-gray-500">${item.author?.name || 'Аноним'} • ${formatTimeAgo(item.createdAt)}</p>
+                    </div>
+                    <span class="status-badge status-${item.status}">
+                        ${getStatusText(item.status)}
+                    </span>
+                </div>
+            `).join('');
+        }
+        
+        function renderCharts(analytics, items) {
+            // Status chart
+            const statusCtx = document.getElementById('statusChart');
+            if (statusCtx && !statusCtx.chart) {
+                statusCtx.chart = new Chart(statusCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Активные', 'Забрали', 'Просрочено'],
+                        datasets: [{
+                            data: [analytics.activeItems, analytics.takenItems, analytics.expiredItems],
+                            backgroundColor: ['#10b981', '#6366f1', '#f59e0b']
+                        }]
+                    },
+                    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+                });
+            }
+            
+            // Categories chart
+            const catCounts = {};
+            items.forEach(item => {
+                catCounts[item.category] = (catCounts[item.category] || 0) + 1;
+            });
+            
+            const catCtx = document.getElementById('categoriesChart');
+            if (catCtx && !catCtx.chart) {
+                catCtx.chart = new Chart(catCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(catCounts).map(c => getCategoryName(c)),
+                        datasets: [{
+                            label: 'Объявлений',
+                            data: Object.values(catCounts),
+                            backgroundColor: '#10b981'
+                        }]
+                    },
+                    options: { responsive: true, plugins: { legend: { display: false } } }
+                });
+            }
+        }
+        
+        // === Items ===
+        async function loadItems() {
+            try {
+                const items = await API.getItems({});
+                renderItemsTable(items);
+            } catch (e) {
+                console.error('Items error:', e);
+            }
+        }
+        
+        function renderItemsTable(items) {
+            const tbody = document.getElementById('itemsTableBody');
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Нет объявлений</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = items.map(item => `
+                <tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">${item.emoji || '📦'}</span>
+                            <div>
+                                <p class="font-medium text-gray-800">${escapeHtml(item.title)}</p>
+                                <p class="text-sm text-gray-500">${escapeHtml(item.location?.address || '')}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="text-sm">${escapeHtml(item.author?.name || 'Аноним')}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="status-badge status-${item.status}">${getStatusText(item.status)}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <span class="text-sm ${item.reports > 0 ? 'text-red-600 font-semibold' : 'text-gray-500'}">${item.reports || 0}</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-500">${formatDate(item.createdAt)}</td>
+                    <td class="px-6 py-4">
+                        <div class="flex gap-2">
+                            ${item.status === 'hidden' ? `<button onclick="unhideItem(${item.id})" class="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Восстановить">✅</button>` : ''}
+                            ${item.status !== 'hidden' ? `<button onclick="hideItem(${item.id})" class="p-2 text-amber-600 hover:bg-amber-50 rounded-lg" title="Скрыть">🚫</button>` : ''}
+                            <button onclick="deleteItem(${item.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Удалить">🗑️</button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+        
+        async function filterItems() {
+            const search = document.getElementById('itemSearch')?.value || '';
+            const status = document.getElementById('itemStatus')?.value || '';
+            
+            const items = await API.getItems({ search, status: status || undefined });
+            renderItemsTable(items);
+        }
+        
+        async function hideItem(id) {
+            if (confirm('Скрыть это объявление?')) {
+                await API.updateItem(id, { status: 'hidden' });
+                loadItems();
+                loadDashboard();
+            }
+        }
+        
+        async function unhideItem(id) {
+            await API.updateItem(id, { status: 'active' });
+            loadItems();
+            loadDashboard();
+        }
+        
+        async function deleteItem(id) {
+            if (confirm('Удалить это объявление навсегда?')) {
+                await API.deleteItem(id);
+                loadItems();
+                loadDashboard();
+            }
+        }
+        
+        // === Reports ===
+        async function loadReports() {
+            try {
+                const reports = await API.getReports({});
+                renderReports(reports);
+                
+                const pending = reports.filter(r => r.status === 'pending').length;
+                document.getElementById('pendingCount').textContent = `${pending} на рассмотрении`;
+            } catch (e) {
+                console.error('Reports error:', e);
+            }
+        }
+        
+        function renderReports(reports) {
+            const container = document.getElementById('reportsList');
+            if (reports.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Нет жалоб</p>';
+                return;
+            }
+            
+            const reasons = {
+                'fake': '🚫 Фейк',
+                'dangerous': '⚠️ Опасно',
+                'spam': '📢 Спам',
+                'wrong_location': '📍 Неверное место'
+            };
+            
+            container.innerHTML = reports.map(r => `
+                <div class="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4">
+                    <div class="flex-1">
+                        <p class="font-medium text-gray-800">Объявление #${r.itemId}</p>
+                        <p class="text-sm text-amber-600">${reasons[r.reason] || r.reason}</p>
+                        <p class="text-xs text-gray-400">${formatTimeAgo(r.createdAt)}</p>
+                    </div>
+                    <span class="status-badge status-${r.status}">
+                        ${r.status === 'pending' ? '⏳ Ожидает' : '✅ Решено'}
+                    </span>
+                    ${r.status === 'pending' ? `
+                        <div class="flex gap-2">
+                            <button onclick="resolveReport(${r.id}, ${r.itemId}, true)" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-semibold hover:bg-red-200">
+                                Скрыть
+                            </button>
+                            <button onclick="resolveReport(${r.id}, ${r.itemId}, false)" class="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200">
+                                Отклонить
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+        }
+        
+        async function resolveReport(reportId, itemId, hideItem) {
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/api/reports/${reportId}/resolve`, {
+                    method: 'PATCH',
+                    headers: API.getHeaders(),
+                    body: JSON.stringify({ hideItem })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to resolve report');
+                }
+                
+                loadReports();
+                loadDashboard();
+            } catch (error) {
+                console.error('Resolve report error:', error);
+                alert(`Ошибка: ${error.message}`);
+            }
+        }
+        
+        // === Settings ===
+        async function addAdmin() {
+            const input = document.getElementById('newAdminId');
+            const adminId = parseInt(input.value);
+            
+            if (!adminId) {
+                alert('Введите корректный Telegram ID');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/api/admin/admins`, {
+                    method: 'POST',
+                    headers: API.getHeaders(),
+                    body: JSON.stringify({ telegramId: adminId })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to add admin');
+                }
+                
+                alert(`Админ ${adminId} добавлен`);
+                input.value = '';
+                await loadAdminsList();
+            } catch (error) {
+                console.error('Add admin error:', error);
+                alert(`Ошибка: ${error.message}`);
+            }
+        }
+        
+        async function loadAdminsList() {
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/api/admin/admins`, {
+                    headers: API.getHeaders()
+                });
+                
+                if (!response.ok) throw new Error('Failed to load admins');
+                
+                const admins = await response.json();
+                renderAdminsList(admins);
+            } catch (error) {
+                console.error('Load admins error:', error);
+                // Fallback
+                renderAdminsList([]);
+            }
+        }
+        
+        function renderAdminsList(admins) {
+            const container = document.getElementById('adminsList');
+            const nonCreatorAdmins = admins.filter(a => !a.isCreator);
+            
+            if (nonCreatorAdmins.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-sm">Нет дополнительных админов</p>';
+                return;
+            }
+            
+            container.innerHTML = nonCreatorAdmins.map(admin => `
+                <div class="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                    <span class="font-mono">${admin.telegramId}</span>
+                    <button onclick="removeAdmin(${admin.telegramId})" class="text-red-600 hover:text-red-800">✕</button>
+                </div>
+            `).join('');
+        }
+        
+        async function removeAdmin(telegramId) {
+            if (!confirm(`Удалить администратора ${telegramId}?`)) return;
+            
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/api/admin/admins/${telegramId}`, {
+                    method: 'DELETE',
+                    headers: API.getHeaders()
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to remove admin');
+                }
+                
+                alert('Админ удалён');
+                await loadAdminsList();
+            } catch (error) {
+                console.error('Remove admin error:', error);
+                alert(`Ошибка: ${error.message}`);
+            }
+        }
+        
+        async function clearExpired() {
+            if (!confirm('Удалить все просроченные объявления?')) return;
+            
+            const items = await API.getItems({});
+            for (const item of items) {
+                if (item.status === 'expired') {
+                    await API.deleteItem(item.id);
+                }
+            }
+            
+            loadItems();
+            loadDashboard();
+            alert('Просроченные объявления удалены');
+        }
+        
+        function exportAllData() {
+            const data = {
+                items: JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.items) || '[]'),
+                reports: JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.reports) || '[]'),
+                exportedAt: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pomoechka_export_${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+        }
+        
+        function exportItems() {
+            const items = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.items) || '[]');
+            const csv = 'ID,Название,Категория,Статус,Автор,Жалобы,Дата\n' + 
+                items.map(i => `${i.id},"${i.title}",${i.category},${i.status},"${i.author?.name}",${i.reports||0},${formatDate(i.createdAt)}`).join('\n');
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'items.csv';
+            a.click();
+        }
+        
+        function clearAllData() {
+            if (!confirm('⚠️ Это удалит ВСЕ данные! Продолжить?')) return;
+            if (!confirm('Вы уверены? Это действие нельзя отменить!')) return;
+            
+            localStorage.clear();
+            location.reload();
+        }
+        
+        async function loadCreatorSettings() {
+            try {
+                const settings = await API.getAdminSettings();
+                document.getElementById('creatorIdDisplay').value = settings.creatorId || 'Не установлен';
+                await loadAdminsList();
+            } catch (error) {
+                console.error('Load creator settings error:', error);
+            }
+        }
+        
+        async function saveSettings() {
+            try {
+                const settings = {
+                    itemLifetime: parseInt(document.getElementById('settingLifetime').value),
+                    autoHideReports: parseInt(document.getElementById('settingAutoHide').checked ? '3' : '0'),
+                    requirePhoto: document.getElementById('settingRequirePhoto').checked,
+                    preModeration: false,
+                    karma: {
+                        publish: parseInt(document.getElementById('karmaPublish').value),
+                        taken: parseInt(document.getElementById('karmaTaken').value),
+                        extend: 2,
+                        thanks: 5
+                    }
+                };
+                
+                const response = await fetch(`${CONFIG.API_URL}/api/admin/settings`, {
+                    method: 'POST',
+                    headers: API.getHeaders(),
+                    body: JSON.stringify(settings)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to save settings');
+                }
+                
+                alert('✅ Настройки сохранены');
+            } catch (error) {
+                console.error('Save settings error:', error);
+                alert(`Ошибка: ${error.message}`);
+            }
+        }
+        
+        function refreshData() {
+            loadDashboard();
+            loadItems();
+            loadReports();
+        }
+        
+        // === Helpers ===
+        function escapeHtml(str = '') {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+        
+        function formatTimeAgo(ts) {
+            if (!ts) return '';
+            const sec = Math.floor((Date.now() - ts) / 1000);
+            if (sec < 60) return 'только что';
+            if (sec < 3600) return `${Math.floor(sec / 60)} мин назад`;
+            if (sec < 86400) return `${Math.floor(sec / 3600)} ч назад`;
+            return `${Math.floor(sec / 86400)} дн назад`;
+        }
+        
+        function formatDate(ts) {
+            if (!ts) return '';
+            return new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        }
+        
+        function getStatusText(status) {
+            const texts = { active: '🟢 Активно', taken: '✅ Забрали', expired: '⏰ Просрочено', hidden: '🚫 Скрыто' };
+            return texts[status] || status;
+        }
+        
+        function getCategoryName(cat) {
+            const names = { furniture: 'Мебель', construction: 'Стройка', electronics: 'Техника', books: 'Книги', plants: 'Растения', other: 'Прочее' };
+            return names[cat] || cat;
+        }
+    </script>
+
+</body>
+</html>
