@@ -51,29 +51,6 @@ const MOCK_ITEMS = [];
 
 // === Mock User (удален - используем только реальные данные из API) ===
 const MOCK_USER = null;
-    initial: 'А',
-    city: 'Москва',
-    district: 'Хамовники',
-    karma: 247,
-    rankPosition: 15,
-    stats: {
-        published: 12,
-        taken: 8,
-        savedKg: 35,
-        fastPickups: 2,
-        thanks: 6,
-        reliability: 92
-    },
-    achievements: ['newbie', 'activist', 'lightning'],
-    thanks: [
-        { from: 'Ольга', initial: 'О', color: 'pink', text: 'Спасибо за книги! 📚', date: 'вчера' },
-        { from: 'Дмитрий', initial: 'Д', color: 'blue', text: 'Стулья отличные, спасибо!', date: '3 дня' }
-    ],
-    subscriptions: {
-        categories: ['furniture', 'electronics'],
-        districts: ['Хамовники', 'Арбат', 'Пресненский']
-    }
-};
 
 // === Storage Keys ===
 const STORAGE_KEYS = {

@@ -426,23 +426,6 @@ const API = {
         return savedUser;
     },
 
-        // Fallback для демо (не в Telegram)
-        let demoUser = JSON.parse(localStorage.getItem(CONFIG.STORAGE_KEYS.user) || 'null');
-        if (!demoUser) {
-            demoUser = {
-                id: 'demo_' + Date.now(),
-                name: 'Демо-пользователь',
-                initial: 'Д',
-                karma: 0,
-                stats: { published: 0, taken: 0, savedKg: 0 },
-                achievements: [],
-                isDemo: true
-            };
-            localStorage.setItem(CONFIG.STORAGE_KEYS.user, JSON.stringify(demoUser));
-        }
-        return demoUser;
-    },
-
     async updateUser(updates) {
         if (hasBackend()) {
             try {

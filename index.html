@@ -489,11 +489,6 @@
     <script src="js/app.js"></script>
     
     <script>
-        // Проверка доступности функций
-        function hasBackend() {
-            return window.CONFIG && !!window.CONFIG.API_URL;
-        }
-        
         // Инициализация приложения
         document.addEventListener('DOMContentLoaded', async () => {
             await initApp();
@@ -635,6 +630,9 @@
                 return;
             }
             
+            // Проверяем доступность бэкенда (используем функцию из config.js)
+            const hasBackend = () => window.CONFIG && !!window.CONFIG.API_URL;
+            
             if (!hasBackend()) {
                 alert('❌ Бэкенд не настроен. Проверьте CONFIG.API_URL.');
                 console.error('CONFIG.API_URL:', window.CONFIG?.API_URL);
@@ -666,10 +664,12 @@
                     throw new Error('Данные пользователя Telegram не найдены');
                 }
                 
+                const hasBackendCheck = () => window.CONFIG && !!window.CONFIG.API_URL;
+                
                 console.log('🔧 Настройка создателя...', {
                     apiUrl: window.CONFIG?.API_URL,
                     telegramId: tgUser.id,
-                    hasBackend: hasBackend()
+                    hasBackend: hasBackendCheck()
                 });
                 
                 // Сохраняем создателя через API
