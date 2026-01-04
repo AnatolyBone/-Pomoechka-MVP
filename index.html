@@ -682,18 +682,34 @@
         
         // Вспомогательные функции
         function hideAuthScreen() {
+            console.log('🔄 hideAuthScreen() вызвана');
             const authScreen = document.getElementById('authScreen');
+            const authStatus = document.getElementById('authStatus');
+            
             if (authScreen) {
                 authScreen.style.display = 'none';
                 authScreen.classList.add('hidden');
+                console.log('✅ authScreen скрыт');
+            } else {
+                console.warn('⚠️ authScreen не найден');
+            }
+            
+            if (authStatus) {
+                authStatus.classList.add('hidden');
+                authStatus.style.display = 'none';
+                console.log('✅ authStatus скрыт');
             }
         }
 
         function showMainApp() {
+            console.log('🔄 showMainApp() вызвана');
             const mainApp = document.getElementById('mainApp');
             if (mainApp) {
                 mainApp.style.display = 'block';
                 mainApp.classList.remove('hidden');
+                console.log('✅ mainApp показан');
+            } else {
+                console.warn('⚠️ mainApp не найден');
             }
         }
 
@@ -701,10 +717,18 @@
         async function initializeUser(telegramUser) {
             console.log('👤 Инициализация пользователя:', telegramUser.id);
             
-            // Пробуем получить данные с бэкенда
+            // Пробуем получить данные с бэкенда (с таймаутом)
             if (window.API && typeof API.getCurrentUser === 'function') {
                 try {
-                    const userData = await API.getCurrentUser();
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Timeout')), 5000)
+                    );
+                    
+                    const userData = await Promise.race([
+                        API.getCurrentUser(),
+                        timeoutPromise
+                    ]);
+                    
                     if (userData) {
                         window.currentUserData = userData;
                         console.log('✅ Данные пользователя с бэкенда:', userData);
@@ -712,6 +736,7 @@
                     }
                 } catch (e) {
                     console.warn('⚠️ Не удалось получить данные с бэкенда:', e.message);
+                    // Продолжаем с fallback
                 }
             }
             
@@ -729,7 +754,6 @@
         }
 
         // Проверка прав доступа
-        // Проверка прав доступа
         async function checkPermissions() {
             console.log('🔐 Проверка прав доступа...');
             
@@ -739,17 +763,30 @@
             
             if (window.API && window.API.baseUrl) {
                 try {
-                    // Проверяем права пользователя
-                    const rights = await API.request('/api/auth/check-admin').catch(() => ({ isAdmin: false, isCreator: false }));
+                    // Проверяем права пользователя (с таймаутом)
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('Timeout')), 3000)
+                    );
+                    
+                    const rights = await Promise.race([
+                        API.request('/api/auth/check-admin').catch(() => ({ isAdmin: false, isCreator: false })),
+                        timeoutPromise
+                    ]).catch(() => ({ isAdmin: false, isCreator: false }));
+                    
                     isAdmin = rights.isAdmin || false;
                     isCreator = rights.isCreator || false;
                     
-                    // Проверяем существование создателя
-                    const creatorCheck = await API.request('/api/auth/check-creator').catch(() => ({ hasCreator: true }));
+                    // Проверяем существование создателя (с таймаутом)
+                    const creatorCheck = await Promise.race([
+                        API.request('/api/auth/check-creator').catch(() => ({ hasCreator: true })),
+                        timeoutPromise
+                    ]).catch(() => ({ hasCreator: true }));
+                    
                     hasCreator = creatorCheck.hasCreator;
                     
                 } catch (e) {
                     console.warn('⚠️ Ошибка проверки прав:', e.message);
+                    // Используем значения по умолчанию
                 }
             }
             
@@ -923,30 +960,53 @@
             
             try {
                 // Инициализация пользователя
-                await initializeUser(tgUser);
+                console.log('🔄 Инициализация пользователя...');
+                try {
+                    await initializeUser(tgUser);
+                    console.log('✅ Пользователь инициализирован');
+                } catch (e) {
+                    console.error('❌ Ошибка инициализации пользователя:', e);
+                    // Продолжаем даже при ошибке
+                }
                 
                 // Скрываем экран авторизации, показываем приложение
+                console.log('🔄 Скрытие экрана авторизации...');
                 hideAuthScreen();
                 showMainApp();
+                console.log('✅ Экран авторизации скрыт, приложение показано');
                 
-                // Проверяем права доступа
-                await checkPermissions();
+                // Проверяем права доступа (не блокируем запуск)
+                console.log('🔄 Проверка прав...');
+                try {
+                    await checkPermissions();
+                    console.log('✅ Права проверены');
+                } catch (e) {
+                    console.error('❌ Ошибка проверки прав:', e);
+                    // Продолжаем даже при ошибке
+                }
                 
                 // Инициализируем приложение
+                console.log('🔄 Инициализация компонентов приложения...');
                 if (window.App) {
                     App.telegramUser = tgUser;
                     
-                    if (window.initAppComponents) {
+                    if (typeof window.initAppComponents === 'function') {
                         initAppComponents();
                     }
                     
-                    showScreen('map');
+                    if (typeof showScreen === 'function') {
+                        showScreen('map');
+                    }
+                    console.log('✅ Компоненты приложения инициализированы');
+                } else {
+                    console.warn('⚠️ App не найден');
                 }
                 
                 console.log('🎉 Приложение успешно инициализировано!');
                 
             } catch (e) {
-                console.error('❌ Ошибка инициализации:', e);
+                console.error('❌ Критическая ошибка инициализации:', e);
+                console.error('Stack:', e.stack);
                 showError('Ошибка инициализации: ' + (e.message || 'Неизвестная ошибка'));
             }
         }
