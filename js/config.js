@@ -17,8 +17,12 @@ const CONFIG = {
     ADMIN_IDS: [],
     
     // === API ===
-    // URL бэкенда (null для локальной разработки с localStorage)
-    API_URL: 'http://localhost:3000', // или 'https://api.pomoechka.ru' для продакшна
+    // URL бэкенда инжектируется из переменной окружения Netlify при деплое
+    // Для локальной разработки: 'http://localhost:3000'
+    // Для продакшна: значение из переменной окружения API_URL на Netlify
+    API_URL: window.location.hostname === 'localhost' 
+        ? 'http://localhost:3000' 
+        : '{{API_URL}}', // Будет заменено скриптом inject-env.js из переменной окружения
     
     // === Settings ===
     DEFAULT_ITEM_LIFETIME: 6 * 60 * 60 * 1000, // 6 часов
