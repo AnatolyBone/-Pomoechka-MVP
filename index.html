@@ -29,10 +29,10 @@
         }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100 flex items-center justify-center p-4">
+<body class="min-h-screen bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100">
     
-    <!-- Desktop wrapper -->
-    <div class="flex flex-col lg:flex-row items-center gap-8">
+    <!-- Desktop wrapper (скрыт в Telegram) -->
+    <div id="desktopWrapper" class="flex flex-col lg:flex-row items-center gap-8 justify-center min-h-screen p-4" style="display: none;">
         
         <!-- Info panel -->
         <div class="max-w-md text-center lg:text-left">
@@ -649,6 +649,37 @@
     <script src="js/api.js"></script>
     <script src="js/data.js"></script>
     <script src="js/app.js"></script>
+    
+    <script>
+        // Скрываем демо-телефон если открыто в Telegram
+        document.addEventListener('DOMContentLoaded', () => {
+            const isTelegram = !!window.Telegram?.WebApp?.initData;
+            const desktopWrapper = document.querySelector('.flex.flex-col.lg\\:flex-row');
+            const phoneFrame = document.querySelector('.phone-frame');
+            
+            if (isTelegram) {
+                // В Telegram - показываем только телефон, без обертки
+                if (desktopWrapper) {
+                    desktopWrapper.style.display = 'none';
+                }
+                if (phoneFrame) {
+                    phoneFrame.style.width = '100%';
+                    phoneFrame.style.height = '100vh';
+                    phoneFrame.style.borderRadius = '0';
+                    phoneFrame.style.boxShadow = 'none';
+                    phoneFrame.parentElement.style.width = '100%';
+                    phoneFrame.parentElement.style.height = '100vh';
+                }
+                document.body.style.padding = '0';
+                document.body.style.background = 'transparent';
+            } else {
+                // В браузере - показываем демо-версию
+                if (desktopWrapper) {
+                    desktopWrapper.style.display = 'flex';
+                }
+            }
+        });
+    </script>
 
 </body>
 </html>

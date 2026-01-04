@@ -25,14 +25,23 @@ function initTelegram() {
         if (tg.initDataUnsafe?.user) {
             App.telegramUser = tg.initDataUnsafe.user;
             
-            // Update user profile with Telegram data
-            const user = Data.getUser();
-            Data.updateUser({
-                telegramId: App.telegramUser.id,
-                name: App.telegramUser.first_name,
-                username: App.telegramUser.username ? `@${App.telegramUser.username}` : '',
-                initial: App.telegramUser.first_name.charAt(0).toUpperCase()
-            });
+            // Update user profile with Telegram data (через API если доступен)
+            if (hasBackend() && window.API) {
+                API.updateUser({
+                    telegramId: App.telegramUser.id,
+                    name: App.telegramUser.first_name,
+                    username: App.telegramUser.username ? `@${App.telegramUser.username}` : '',
+                    initial: App.telegramUser.first_name.charAt(0).toUpperCase()
+                }).catch(console.error);
+            } else {
+                const user = Data.getUser();
+                Data.updateUser({
+                    telegramId: App.telegramUser.id,
+                    name: App.telegramUser.first_name,
+                    username: App.telegramUser.username ? `@${App.telegramUser.username}` : '',
+                    initial: App.telegramUser.first_name.charAt(0).toUpperCase()
+                });
+            }
         }
         
         // Apply Telegram theme
@@ -92,11 +101,11 @@ function showScreen(screenId) {
         
         // Screen-specific init
         switch(screenId) {
-            case 'map': initMapScreen(); break;
-            case 'feed': initFeedScreen(); break;
-            case 'profile': initProfileScreen(); break;
+            case 'map': initMapScreen().catch(console.error); break;
+            case 'feed': initFeedScreen().catch(console.error); break;
+            case 'profile': initProfileScreen().catch(console.error); break;
             case 'add': initAddScreen(); break;
-            case 'detail': initDetailScreen(); break;
+            case 'detail': initDetailScreen().catch(console.error); break;
         }
     }
 }
@@ -117,17 +126,36 @@ function updateBottomNav(screenId) {
 }
 
 // === Map Screen ===
-function initMapScreen() {
-    updateMapMarkers();
+async function initMapScreen() {
+    await updateMapMarkers();
     updateRadiusButtons();
 }
 
-function updateMapMarkers() {
-    const items = Data.filterItems({
-        status: 'active',
-        maxDistance: App.selectedRadius,
-        category: App.selectedCategory !== 'all' ? App.selectedCategory : null
-    });
+async function updateMapMarkers() {
+    // Используем API если доступен, иначе localStorage
+    let items = [];
+    if (hasBackend() && window.API) {
+        try {
+            items = await API.getItems({
+                status: 'active',
+                maxDistance: App.selectedRadius,
+                category: App.selectedCategory !== 'all' ? App.selectedCategory : null
+            });
+        } catch (e) {
+            console.error('Failed to load items from backend:', e);
+            items = Data.filterItems({
+                status: 'active',
+                maxDistance: App.selectedRadius,
+                category: App.selectedCategory !== 'all' ? App.selectedCategory : null
+            });
+        }
+    } else {
+        items = Data.filterItems({
+            status: 'active',
+            maxDistance: App.selectedRadius,
+            category: App.selectedCategory !== 'all' ? App.selectedCategory : null
+        });
+    }
     
     const container = document.getElementById('mapMarkers');
     if (!container) return;
@@ -196,10 +224,10 @@ function updateMapMarkers() {
     }
 }
 
-function setRadius(km) {
+async function setRadius(km) {
     App.selectedRadius = km;
     updateRadiusButtons();
-    updateMapMarkers();
+    await updateMapMarkers();
 }
 
 function updateRadiusButtons() {
@@ -216,18 +244,35 @@ function updateRadiusButtons() {
 }
 
 // === Feed Screen ===
-function initFeedScreen() {
-    renderFeedItems();
+async function initFeedScreen() {
+    await renderFeedItems();
 }
 
-function renderFeedItems() {
-    // In feed we show all statuses for demo (including taken/expired)
-    // Pass status: null to override default 'active' filter
-    const items = Data.filterItems({
-        category: App.selectedCategory !== 'all' ? App.selectedCategory : null,
-        status: null, // Show all statuses in feed
-        search: App.searchQuery
-    });
+async function renderFeedItems() {
+    // Используем API если доступен, иначе localStorage
+    let items = [];
+    if (hasBackend() && window.API) {
+        try {
+            items = await API.getItems({
+                category: App.selectedCategory !== 'all' ? App.selectedCategory : null,
+                status: null, // Show all statuses in feed
+                search: App.searchQuery
+            });
+        } catch (e) {
+            console.error('Failed to load items from backend:', e);
+            items = Data.filterItems({
+                category: App.selectedCategory !== 'all' ? App.selectedCategory : null,
+                status: null,
+                search: App.searchQuery
+            });
+        }
+    } else {
+        items = Data.filterItems({
+            category: App.selectedCategory !== 'all' ? App.selectedCategory : null,
+            status: null,
+            search: App.searchQuery
+        });
+    }
     
     const container = document.getElementById('feedItems');
     if (!container) return;
@@ -306,7 +351,7 @@ function renderItemCard(item) {
     `;
 }
 
-function setCategory(categoryId) {
+async function setCategory(categoryId) {
     App.selectedCategory = categoryId;
     
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -318,32 +363,44 @@ function setCategory(categoryId) {
         btn.classList.toggle('border-transparent', !isActive);
     });
     
-    renderFeedItems();
-    updateMapMarkers();
+    await renderFeedItems();
+    await updateMapMarkers();
 }
 
-function handleSearch(query) {
+async function handleSearch(query) {
     App.searchQuery = query;
-    renderFeedItems();
+    await renderFeedItems();
 }
 
 // === Item Detail ===
-function showItemDetail(itemId) {
-    App.selectedItem = Data.getItem(itemId);
-    if (!App.selectedItem) return;
-    
-    // Increment views
-    Data.updateItem(itemId, { views: (App.selectedItem.views || 0) + 1 });
-    App.selectedItem = Data.getItem(itemId); // Refresh
-    
-    showScreen('detail');
+async function showItemDetail(itemId) {
+    // Используем API если доступен
+    if (hasBackend() && window.API) {
+        try {
+            App.selectedItem = await API.getItem(itemId);
+            if (!App.selectedItem) return;
+            showScreen('detail');
+        } catch (e) {
+            console.error('Failed to load item from backend:', e);
+            App.selectedItem = Data.getItem(itemId);
+            if (!App.selectedItem) return;
+            showScreen('detail');
+        }
+    } else {
+        App.selectedItem = Data.getItem(itemId);
+        if (!App.selectedItem) return;
+        // Increment views
+        Data.updateItem(itemId, { views: (App.selectedItem.views || 0) + 1 });
+        App.selectedItem = Data.getItem(itemId); // Refresh
+        showScreen('detail');
+    }
 }
 
-function initDetailScreen() {
-    renderItemDetail();
+async function initDetailScreen() {
+    await renderItemDetail();
 }
 
-function renderItemDetail() {
+async function renderItemDetail() {
     const item = App.selectedItem;
     if (!item) return;
     
@@ -353,8 +410,21 @@ function renderItemDetail() {
     
     const expiryPercent = Utils.getExpiryPercent(item);
     const canTake = item.status === 'active';
-    const user = Data.getUser();
-    const isOwner = item.author.id === user.id;
+    
+    // Получаем текущего пользователя
+    let user;
+    if (hasBackend() && window.API) {
+        try {
+            user = await API.getCurrentUser();
+        } catch (e) {
+            console.error('Failed to load user from backend:', e);
+            user = Data.getUser();
+        }
+    } else {
+        user = Data.getUser();
+    }
+    
+    const isOwner = item.author?.id === user?.id;
     
     container.innerHTML = `
         <div class="relative">
@@ -469,35 +539,61 @@ function renderItemDetail() {
     `;
 }
 
-function takeItem(itemId) {
-    Data.markAsTaken(itemId);
-    Data.addKarma(5);
-    
-    // Update UI immediately
-    App.selectedItem = Data.getItem(itemId);
-    renderItemDetail();
-    
-    showSuccessModal('🙌', 'Отлично!', 'Автор получил уведомление. Не забудь сказать спасибо! +5 кармы');
+async function takeItem(itemId) {
+    if (hasBackend() && window.API) {
+        try {
+            App.selectedItem = await API.markAsTaken(itemId);
+            await renderItemDetail();
+            showSuccessModal('🙌', 'Отлично!', 'Автор получил уведомление. Не забудь сказать спасибо! +5 кармы');
+        } catch (e) {
+            console.error('Failed to mark as taken:', e);
+            showToast('⚠️ Ошибка. Попробуйте еще раз.');
+        }
+    } else {
+        Data.markAsTaken(itemId);
+        Data.addKarma(5);
+        App.selectedItem = Data.getItem(itemId);
+        renderItemDetail();
+        showSuccessModal('🙌', 'Отлично!', 'Автор получил уведомление. Не забудь сказать спасибо! +5 кармы');
+    }
 }
 
-function markAsTaken(itemId) {
-    Data.markAsTaken(itemId);
-    Data.addKarma(25); // Owner gets karma when item is taken
-    
-    App.selectedItem = Data.getItem(itemId);
-    renderItemDetail();
-    
-    showToast('Отмечено как забранное! +25 кармы');
+async function markAsTaken(itemId) {
+    if (hasBackend() && window.API) {
+        try {
+            App.selectedItem = await API.markAsTaken(itemId);
+            await renderItemDetail();
+            showToast('Отмечено как забранное! +25 кармы');
+        } catch (e) {
+            console.error('Failed to mark as taken:', e);
+            showToast('⚠️ Ошибка. Попробуйте еще раз.');
+        }
+    } else {
+        Data.markAsTaken(itemId);
+        Data.addKarma(25);
+        App.selectedItem = Data.getItem(itemId);
+        renderItemDetail();
+        showToast('Отмечено как забранное! +25 кармы');
+    }
 }
 
-function extendItem(itemId) {
-    Data.extendItem(itemId);
-    Data.addKarma(2);
-    
-    App.selectedItem = Data.getItem(itemId);
-    renderItemDetail();
-    
-    showToast('Продлено на 6 часов! +2 кармы');
+async function extendItem(itemId) {
+    if (hasBackend() && window.API) {
+        try {
+            App.selectedItem = await API.extendItem(itemId);
+            await renderItemDetail();
+            showToast('Продлено на 6 часов! +2 кармы');
+        } catch (e) {
+            console.error('Failed to extend item:', e);
+            showToast('⚠️ Ошибка. Попробуйте еще раз.');
+        }
+    } else {
+        Data.extendItem(itemId);
+        Data.addKarma(2);
+        App.selectedItem = Data.getItem(itemId);
+        renderItemDetail();
+        showToast('Продлено на 6 часов! +2 кармы');
+    }
 }
 
 function openChat(userId) {
@@ -574,7 +670,7 @@ function requestGeolocation() {
     }
 }
 
-function publishItem() {
+async function publishItem() {
     const title = document.getElementById('itemTitle')?.value?.trim();
     const description = document.getElementById('itemDescription')?.value?.trim();
     const selectedCat = document.querySelector('.category-chip.selected');
@@ -592,7 +688,19 @@ function publishItem() {
     
     const category = selectedCat.dataset.category;
     const cat = Utils.getCategory(category);
-    const user = Data.getUser();
+    
+    // Получаем пользователя
+    let user;
+    if (hasBackend() && window.API) {
+        try {
+            user = await API.getCurrentUser();
+        } catch (e) {
+            console.error('Failed to load user:', e);
+            user = Data.getUser();
+        }
+    } else {
+        user = Data.getUser();
+    }
     
     const newItem = {
         title: title,
@@ -600,35 +708,49 @@ function publishItem() {
         category: category,
         emoji: cat.icon,
         location: {
-            address: 'ул. Льва Толстого, 23',
+            address: 'ул. Льва Толстого, 23', // TODO: получить реальный адрес
             details: 'у подъезда',
             lat: App.currentLocation?.lat || 55.7558,
-            lng: App.currentLocation?.lng || 37.6173,
-            distance: 100
-        },
-        author: {
-            id: user.id,
-            name: user.name,
-            initial: user.initial,
-            karma: user.karma,
-            color: 'emerald'
+            lng: App.currentLocation?.lng || 37.6173
         },
         chatEnabled: document.getElementById('chatToggle')?.classList.contains('active') ?? true
     };
     
-    Data.addItem(newItem);
-    Data.addKarma(10);
-    Data.updateUserStats('published', 1);
+    // Сохраняем через API или localStorage
+    if (hasBackend() && window.API) {
+        try {
+            await API.createItem(newItem);
+            showSuccessModal('🎉', 'Опубликовано!', '+10 кармы • Уведомим когда заберут');
+        } catch (e) {
+            console.error('Failed to create item:', e);
+            showToast('⚠️ Ошибка при публикации. Попробуйте еще раз.');
+            return;
+        }
+    } else {
+        Data.addItem(newItem);
+        Data.addKarma(10);
+        Data.updateUserStats('published', 1);
+        showSuccessModal('🎉', 'Опубликовано!', '+10 кармы • Уведомим когда заберут');
+    }
     
     // Reset form
     initAddScreen();
-    
-    showSuccessModal('🎉', 'Опубликовано!', '+10 кармы • Уведомим когда заберут');
 }
 
 // === Profile Screen ===
-function initProfileScreen() {
-    const user = Data.getUser();
+async function initProfileScreen() {
+    // Получаем пользователя из API или localStorage
+    let user;
+    if (hasBackend() && window.API) {
+        try {
+            user = await API.getCurrentUser();
+        } catch (e) {
+            console.error('Failed to load user from backend:', e);
+            user = Data.getUser();
+        }
+    } else {
+        user = Data.getUser();
+    }
     
     // Update karma display
     const karmaEl = document.getElementById('userKarma');
@@ -676,8 +798,19 @@ function renderAchievements(user) {
     }).join('');
 }
 
-function renderMyItems(user) {
-    const items = Data.getItems().filter(item => item.author?.id === user.id);
+async function renderMyItems(user) {
+    // Получаем объявления из API или localStorage
+    let items = [];
+    if (hasBackend() && window.API) {
+        try {
+            items = await API.getItems({ authorId: user.id });
+        } catch (e) {
+            console.error('Failed to load user items from backend:', e);
+            items = Data.getItems().filter(item => item.author?.id === user.id);
+        }
+    } else {
+        items = Data.getItems().filter(item => item.author?.id === user.id);
+    }
     const container = document.querySelector('#screen-profile .space-y-2');
     if (!container || items.length === 0) return;
     
@@ -722,16 +855,24 @@ function showReportModal() {
     if (modal) modal.classList.remove('hidden');
 }
 
-function submitReport(reason) {
+async function submitReport(reason) {
     document.getElementById('reportModal')?.classList.add('hidden');
     
-    // In real app, send to server
     const item = App.selectedItem;
-    if (item) {
-        Data.addReport(item.id, reason);
-    }
+    if (!item) return;
     
-    showToast('Жалоба отправлена. Спасибо!');
+    if (hasBackend() && window.API) {
+        try {
+            await API.reportItem(item.id, reason);
+            showToast('Жалоба отправлена. Спасибо!');
+        } catch (e) {
+            console.error('Failed to submit report:', e);
+            showToast('⚠️ Ошибка при отправке жалобы.');
+        }
+    } else {
+        Data.addReport(item.id, reason);
+        showToast('Жалоба отправлена. Спасибо!');
+    }
 }
 
 // === Toast Notifications ===
@@ -829,12 +970,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isTelegram = initTelegram();
     
     // Initialize API (will use backend if available, otherwise localStorage)
+    let backendAvailable = false;
     if (window.API) {
-        await API.init();
+        backendAvailable = await API.init();
     }
     
-    // Initialize storage (fallback)
-    if (window.Storage) {
+    // Initialize storage (fallback) - только если бэкенд недоступен
+    if (window.Storage && !backendAvailable) {
         Storage.init();
     }
     
