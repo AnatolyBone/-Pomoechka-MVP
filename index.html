@@ -3,1063 +3,313 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Помоечка кормит 🗑️✨</title>
-    
-    <!-- Telegram WebApp SDK -->
+    <title>Помоечка кормит</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
-    <!-- Tailwind CSS -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- App Styles -->
-    <link rel="stylesheet" href="css/styles.css">
-    
-    <!-- Eruda для отладки (удалить в продакшене) -->
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
-    
-    <style>
-        * { font-family: 'Nunito', sans-serif; }
-        .screen { display: none; }
-        .screen.active { display: flex; flex-direction: column; }
-    </style>
 </head>
-<body class="min-h-screen bg-gray-50">
+<body class="bg-gray-100">
 
-    <!-- Auth Screen -->
-    <div id="authScreen" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-emerald-100 via-teal-50 to-cyan-100">
-        <div class="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
-            <div class="text-6xl mb-4">🗑️</div>
-            <h1 class="text-2xl font-bold text-gray-800 mb-2">Помоечка кормит</h1>
-            <p class="text-gray-500 mb-6">Telegram мини-приложение для обмена находками</p>
-            
-            <div id="authStatus" class="mb-6">
-                <div class="animate-pulse flex items-center justify-center gap-2 text-gray-500">
-                    <div class="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-                    Загрузка...
-                </div>
-            </div>
-            
-            <div id="authError" class="hidden bg-red-50 text-red-700 p-4 rounded-xl mb-4"></div>
-        </div>
+<!-- Auth Screen -->
+<div id="authScreen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
+        <div class="text-6xl mb-4">🗑️</div>
+        <h1 class="text-2xl font-bold mb-2">Помоечка кормит</h1>
+        <p class="text-gray-500 mb-4">Загрузка...</p>
+        <div id="authError" class="hidden text-red-500"></div>
     </div>
+</div>
 
-    <!-- Main App -->
-    <div id="mainApp" class="hidden min-h-screen">
-        
-        <!-- Screen: Map -->
-        <div id="screen-map" class="screen h-screen bg-gray-50">
-            <div class="bg-white px-4 py-3 border-b border-gray-100 z-10">
-                <div class="flex items-center justify-between mb-2">
-                    <div>
-                        <h1 class="text-lg font-bold text-gray-800">📍 Карта находок</h1>
-                        <p id="userLocation" class="text-xs text-gray-500">Определение...</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button id="adminBtnMap" class="hidden w-10 h-10 rounded-full bg-purple-500 items-center justify-center text-white shadow" onclick="openAdminPanel()">⚙️</button>
-                        <button onclick="showScreen('profile')" id="profileBtnMap" class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold shadow">?</button>
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-semibold" data-radius="0.5" onclick="setRadius(0.5)">500м</button>
-                    <button class="radius-btn active px-3 py-1.5 bg-emerald-500 text-white rounded-full text-xs font-semibold" data-radius="2" onclick="setRadius(2)">2км</button>
-                    <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-semibold" data-radius="5" onclick="setRadius(5)">5км</button>
-                    <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-semibold" data-radius="10" onclick="setRadius(10)">10км</button>
-                </div>
-            </div>
-            
-            <div class="flex-1 relative">
-                <div id="mapContainer" class="absolute inset-0 bg-gradient-to-br from-green-50 via-blue-50 to-indigo-50">
-                    <div class="absolute inset-0 opacity-20" style="background-image: linear-gradient(#ccc 1px, transparent 1px), linear-gradient(90deg, #ccc 1px, transparent 1px); background-size: 30px 30px;"></div>
-                    <div id="mapMarkers"></div>
-                    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-                        <div class="w-4 h-4 bg-blue-500 rounded-full border-4 border-white shadow-lg"></div>
-                        <div class="absolute inset-0 w-4 h-4 bg-blue-500 rounded-full animate-ping"></div>
-                    </div>
-                </div>
-                
-                <div id="mapPreview" class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl shadow-2xl p-4 pb-20">
-                    <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
-                    <p id="mapItemsCount" class="text-xs text-gray-500 text-center">Загрузка...</p>
-                </div>
-            </div>
-            
-            <button onclick="showScreen('add')" class="floating-btn absolute bottom-36 right-4 w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg z-20">+</button>
-            
-            <div class="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-around z-20">
-                <button class="nav-item flex flex-col items-center text-emerald-600" data-screen="map" onclick="showScreen('map')">
-                    <span class="text-xl">🗺️</span>
-                    <span class="text-xs font-semibold">Карта</span>
-                </button>
-                <button class="nav-item flex flex-col items-center text-gray-400" data-screen="feed" onclick="showScreen('feed')">
-                    <span class="text-xl">📋</span>
-                    <span class="text-xs">Лента</span>
-                </button>
-                <button class="nav-item flex flex-col items-center text-gray-400" data-screen="add" onclick="showScreen('add')">
-                    <span class="text-xl">➕</span>
-                    <span class="text-xs">Добавить</span>
-                </button>
-                <button class="nav-item flex flex-col items-center text-gray-400" data-screen="profile" onclick="showScreen('profile')">
-                    <span class="text-xl">👤</span>
-                    <span class="text-xs">Профиль</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Screen: Feed -->
-        <div id="screen-feed" class="screen h-screen bg-gray-50">
-            <div class="bg-white px-4 py-3 border-b border-gray-100">
-                <div class="flex items-center justify-between mb-3">
-                    <div>
-                        <h1 class="text-xl font-bold text-gray-800">Помоечка 🗑️✨</h1>
-                        <p id="feedLocation" class="text-xs text-gray-500">Загрузка...</p>
-                    </div>
-                    <button onclick="showScreen('profile')" id="profileBtnFeed" class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold shadow">?</button>
-                </div>
-                
-                <div class="relative">
-                    <input type="text" id="feedSearch" placeholder="Поиск: диван, стулья, книги..." 
-                           class="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                           oninput="handleSearch(this.value)">
-                    <span class="absolute left-3 top-2.5">🔍</span>
-                </div>
-                
-                <div class="flex gap-2 mt-3 overflow-x-auto pb-1">
-                    <button class="tab-btn active px-3 py-1.5 text-xs font-semibold border-b-2 border-emerald-500 text-emerald-600" data-category="all" onclick="setCategory('all')">🔥 Все</button>
-                    <button class="tab-btn px-3 py-1.5 text-xs font-semibold border-b-2 border-transparent text-gray-500" data-category="furniture" onclick="setCategory('furniture')">🛋️ Мебель</button>
-                    <button class="tab-btn px-3 py-1.5 text-xs font-semibold border-b-2 border-transparent text-gray-500" data-category="construction" onclick="setCategory('construction')">🧱 Строй</button>
-                    <button class="tab-btn px-3 py-1.5 text-xs font-semibold border-b-2 border-transparent text-gray-500" data-category="electronics" onclick="setCategory('electronics')">📺 Техника</button>
-                    <button class="tab-btn px-3 py-1.5 text-xs font-semibold border-b-2 border-transparent text-gray-500" data-category="books" onclick="setCategory('books')">📚 Книги</button>
-                </div>
-            </div>
-            
-            <div class="mx-4 mt-3 bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-amber-400 rounded-xl p-2 text-xs text-amber-800">
-                💡 <strong>Заметил → Отметил → Помог!</strong> Публикуйте то, что уже лежит у контейнеров.
-            </div>
-            
-            <div id="feedItems" class="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
-                <div class="text-center py-12">
-                    <div class="text-6xl mb-4">⏳</div>
-                    <p class="text-gray-500">Загрузка...</p>
-                </div>
-            </div>
-            
-            <button onclick="showScreen('add')" class="floating-btn absolute bottom-20 right-4 w-14 h-14 bg-emerald-500 rounded-full flex items-center justify-center text-white text-2xl font-bold shadow-lg z-10">+</button>
-            
-            <div class="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 px-6 py-3 flex justify-around">
-                <button class="nav-item flex flex-col items-center text-gray-400" data-screen="map" onclick="showScreen('map')">
-                    <span class="text-xl">🗺️</span>
-                    <span class="text-xs">Карта</span>
-                </button>
-                <button class="nav-item flex flex-col items-center text-emerald-600" data-screen="feed" onclick="showScreen('feed')">
-                    <span class="text-xl">📋</span>
-                    <span class="text-xs font-semibold">Лента</span>
-                </button>
-                <button class="nav-item flex flex-col items-center text-gray-400" data-screen="add" onclick="showScreen('add')">
-                    <span class="text-xl">➕</span>
-                    <span class="text-xs">Добавить</span>
-                </button>
-                <button class="nav-item flex flex-col items-center text-gray-400" data-screen="profile" onclick="showScreen('profile')">
-                    <span class="text-xl">👤</span>
-                    <span class="text-xs">Профиль</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Screen: Add Item -->
-        <div id="screen-add" class="screen h-screen bg-gray-50">
-            <div class="bg-white px-4 py-3 border-b border-gray-100 flex items-center gap-3">
-                <button onclick="showScreen('map')" class="text-2xl">←</button>
-                <h1 class="text-lg font-bold text-gray-800">Добавить находку</h1>
-            </div>
-            
-            <div class="flex-1 overflow-y-auto p-4 space-y-4 pb-8">
-                <div class="bg-gradient-to-r from-amber-50 to-yellow-50 border-l-4 border-amber-400 rounded-xl p-3">
-                    <p class="text-sm text-amber-800">
-                        ⚠️ <strong>Важно:</strong> Публикуйте только то, что <strong>уже лежит</strong> у контейнеров.
-                    </p>
-                </div>
-                
-                <div id="uploadZone" class="border-2 border-dashed border-gray-300 rounded-2xl p-8 text-center bg-white cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition">
-                    <div class="text-5xl mb-2">📷</div>
-                    <p class="font-semibold text-gray-700">Сфотографируй находку</p>
-                    <p class="text-xs text-gray-500 mt-1">Нажми для выбора фото</p>
-                </div>
-                
-                <div class="bg-white rounded-2xl p-4">
-                    <label class="text-sm font-semibold text-gray-700 block mb-2">Название *</label>
-                    <input id="itemTitle" type="text" placeholder="Что это? (диван, книги, стулья...)" 
-                           class="w-full p-3 bg-gray-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                </div>
-                
-                <div class="bg-white rounded-2xl p-4">
-                    <label class="text-sm font-semibold text-gray-700 block mb-2">Описание</label>
-                    <textarea id="itemDescription" placeholder="Состояние, размер, особенности..." 
-                              class="w-full h-20 p-3 bg-gray-50 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
-                </div>
-                
-                <div class="bg-white rounded-2xl p-4">
-                    <label class="text-sm font-semibold text-gray-700 block mb-2">Категория *</label>
-                    <div class="flex flex-wrap gap-2">
-                        <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm transition" data-category="furniture" onclick="selectCategory(this)">🛋️ Мебель</button>
-                        <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm transition" data-category="construction" onclick="selectCategory(this)">🧱 Стройматериалы</button>
-                        <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm transition" data-category="electronics" onclick="selectCategory(this)">📺 Техника</button>
-                        <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm transition" data-category="clothing" onclick="selectCategory(this)">👕 Одежда</button>
-                        <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm transition" data-category="books" onclick="selectCategory(this)">📚 Книги</button>
-                        <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm transition" data-category="plants" onclick="selectCategory(this)">🪴 Растения</button>
-                        <button class="category-chip px-3 py-1.5 bg-gray-100 rounded-full text-sm transition" data-category="other" onclick="selectCategory(this)">📦 Другое</button>
-                    </div>
-                </div>
-                
-                <div class="bg-white rounded-2xl p-4">
-                    <label class="text-sm font-semibold text-gray-700 block mb-2">Где находится?</label>
-                    <button id="getLocationBtn" onclick="getCurrentLocation()" class="w-full flex items-center gap-3 p-3 bg-emerald-50 rounded-xl text-emerald-700 font-semibold hover:bg-emerald-100 transition">
-                        <span class="text-xl">📍</span>
-                        <span>Определить автоматически</span>
-                        <span id="locationStatus" class="ml-auto"></span>
-                    </button>
-                    <input id="locationDetails" type="text" placeholder="Уточни: у подъезда 3, за домом..." 
-                           class="w-full mt-2 p-3 bg-gray-50 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500">
-                    <p id="locationInfo" class="text-xs text-gray-500 mt-2"></p>
-                </div>
-                
-                <div class="bg-white rounded-2xl p-4">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="font-semibold text-gray-700">💬 Разрешить чат</p>
-                            <p class="text-xs text-gray-500">Люди смогут написать тебе</p>
-                        </div>
-                        <div id="chatToggle" class="w-12 h-6 bg-emerald-500 rounded-full relative cursor-pointer" onclick="toggleChat()">
-                            <div class="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow transition-all"></div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-blue-50 rounded-xl p-3 text-sm text-blue-800">
-                    ⏰ Объявление будет активно <strong>6 часов</strong>. Ты сможешь продлить его.
-                </div>
-                
-                <button onclick="publishItem()" class="w-full bg-emerald-500 text-white font-bold py-4 rounded-2xl text-lg hover:bg-emerald-600 transition shadow-lg">
-                    Опубликовать 🚀
-                </button>
-            </div>
-        </div>
-
-        <!-- Screen: Profile -->
-        <div id="screen-profile" class="screen h-screen bg-gray-50">
-            <div class="bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-6 text-white">
-                <button onclick="showScreen('map')" class="text-2xl mb-4">←</button>
-                
-                <div class="flex items-center gap-4">
-                    <div id="userAvatar" class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold backdrop-blur">?</div>
-                    <div>
-                        <h1 id="userName" class="text-xl font-bold">Загрузка...</h1>
-                        <p id="userUsername" class="text-emerald-100 text-sm">@username</p>
-                    </div>
-                </div>
-                
-                <div class="mt-4 flex items-center gap-3">
-                    <div class="bg-gradient-to-r from-yellow-400 to-amber-500 px-4 py-2 rounded-full flex items-center gap-2 shadow-lg">
-                        <span class="text-xl">⭐</span>
-                        <span id="userKarma" class="font-bold text-lg">0</span>
-                        <span class="text-sm opacity-80">кармы</span>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="flex-1 overflow-y-auto p-4 space-y-4 pb-8">
-                <div id="userStats" class="grid grid-cols-3 gap-3">
-                    <div class="bg-white rounded-2xl p-4 text-center shadow-sm">
-                        <div id="statPublished" class="text-2xl font-bold text-emerald-600">0</div>
-                        <div class="text-xs text-gray-500">Выложено</div>
-                    </div>
-                    <div class="bg-white rounded-2xl p-4 text-center shadow-sm">
-                        <div id="statTaken" class="text-2xl font-bold text-purple-600">0</div>
-                        <div class="text-xs text-gray-500">Забрали</div>
-                    </div>
-                    <div class="bg-white rounded-2xl p-4 text-center shadow-sm">
-                        <div id="statSaved" class="text-2xl font-bold text-orange-600">~0кг</div>
-                        <div class="text-xs text-gray-500">Спасено</div>
-                    </div>
-                </div>
-                
-                <div id="adminPanelBtn" class="hidden">
-                    <button onclick="openAdminPanel()" class="w-full flex items-center justify-center gap-3 p-4 bg-purple-500 text-white rounded-2xl font-semibold shadow-lg hover:bg-purple-600 transition">
-                        <span class="text-xl">⚙️</span>
-                        <span>Админ-панель</span>
-                    </button>
-                </div>
-                
-                <div class="bg-white rounded-2xl p-4 shadow-sm">
-                    <h3 class="font-bold text-gray-800 mb-3">📦 Мои объявления</h3>
-                    <div id="myItemsList" class="space-y-2">
-                        <p class="text-gray-500 text-center py-4">Загрузка...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Screen: Detail -->
-        <div id="screen-detail" class="screen h-screen bg-gray-50">
-            <div id="detailContent" class="flex-1 overflow-y-auto"></div>
-        </div>
-
-    </div>
-
-    <!-- Modals -->
-    <div id="successModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-3xl p-6 m-4 text-center max-w-sm">
-            <div class="text-6xl mb-4" id="successEmoji">🎉</div>
-            <h2 class="text-xl font-bold text-gray-800 mb-2" id="successTitle">Успешно!</h2>
-            <p class="text-gray-600 mb-4" id="successText">Операция выполнена</p>
-            <button onclick="hideModal()" class="w-full bg-emerald-500 text-white font-bold py-3 rounded-xl">Отлично!</button>
-        </div>
-    </div>
-
-    <div id="creatorSetupModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-2xl p-6 max-w-md w-full">
-            <div class="text-center mb-6">
-                <div class="text-5xl mb-4">👑</div>
-                <h2 class="text-xl font-bold text-gray-800">Добро пожаловать!</h2>
-                <p class="text-gray-600 mt-2">Вы первый пользователь. Введите токен бота для настройки системы.</p>
-            </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Токен бота от @BotFather</label>
-                    <input type="text" id="botTokenInput" placeholder="123456789:ABCdefGHI..."
-                           class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500">
-                </div>
-                
-                <div class="text-sm text-gray-500">
-                    <p>📝 Как получить токен:</p>
-                    <ol class="list-decimal list-inside mt-1 space-y-1">
-                        <li>Откройте @BotFather в Telegram</li>
-                        <li>Отправьте /mybots</li>
-                        <li>Выберите вашего бота</li>
-                        <li>Нажмите "API Token"</li>
-                    </ol>
-                </div>
-            </div>
-            
-            <button onclick="setupCreator()" class="w-full mt-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold rounded-xl hover:shadow-lg transition">
-                ✅ Стать создателем
-            </button>
-            
-            <button onclick="hideCreatorSetupModal()" class="w-full mt-2 py-2 text-gray-500 text-sm">
-                Пропустить
-            </button>
-        </div>
-    </div>
-
-    <div id="mapProviderModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-3xl p-6 m-4 w-full max-w-sm">
-            <h2 class="text-xl font-bold text-gray-800 mb-4 text-center">Выберите карту</h2>
-            <div class="space-y-3">
-                <button onclick="openMapProvider('yandex')" class="w-full p-4 border-2 border-gray-200 rounded-xl text-left hover:border-emerald-500 hover:bg-emerald-50 transition">
-                    <div class="flex items-center gap-3">
-                        <span class="text-3xl">🗺️</span>
-                        <div>
-                            <p class="font-semibold text-gray-800">Яндекс.Карты</p>
-                            <p class="text-xs text-gray-500">Открыть в Яндекс.Картах</p>
-                        </div>
-                    </div>
-                </button>
-                <button onclick="openMapProvider('2gis')" class="w-full p-4 border-2 border-gray-200 rounded-xl text-left hover:border-emerald-500 hover:bg-emerald-50 transition">
-                    <div class="flex items-center gap-3">
-                        <span class="text-3xl">🗺️</span>
-                        <div>
-                            <p class="font-semibold text-gray-800">2ГИС</p>
-                            <p class="text-xs text-gray-500">Открыть в 2ГИС</p>
-                        </div>
-                    </div>
-                </button>
-                <button onclick="openMapProvider('google')" class="w-full p-4 border-2 border-gray-200 rounded-xl text-left hover:border-emerald-500 hover:bg-emerald-50 transition">
-                    <div class="flex items-center gap-3">
-                        <span class="text-3xl">🗺️</span>
-                        <div>
-                            <p class="font-semibold text-gray-800">Google Maps</p>
-                            <p class="text-xs text-gray-500">Открыть в Google Maps</p>
-                        </div>
-                    </div>
-                </button>
-            </div>
-            <button onclick="document.getElementById('mapProviderModal').classList.add('hidden')" class="w-full mt-4 py-3 text-gray-500 font-semibold">Отмена</button>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script src="js/config.js"></script>
-    <script src="js/api.js"></script>
+<!-- Main App -->
+<div id="mainApp" class="hidden">
     
-    <script>
-    // ==========================================
-    // ГЛАВНЫЙ СКРИПТ ПРИЛОЖЕНИЯ
-    // ==========================================
+    <!-- Feed Screen -->
+    <div id="screen-feed" class="min-h-screen bg-gray-50">
+        <div class="bg-white px-4 py-3 border-b flex justify-between items-center">
+            <h1 class="text-xl font-bold">Помоечка 🗑️✨</h1>
+            <div class="flex gap-2">
+                <button id="adminBtn" class="hidden w-10 h-10 rounded-full bg-purple-500 text-white" onclick="openAdminPanel()">⚙️</button>
+                <button class="w-10 h-10 rounded-full bg-emerald-500 text-white font-bold" onclick="showScreen('profile')">👤</button>
+            </div>
+        </div>
+        
+        <div id="feedItems" class="p-4 space-y-4 pb-24">
+            <div class="text-center py-12 text-gray-500">
+                <div class="text-5xl mb-4">📦</div>
+                <p>Загрузка объявлений...</p>
+            </div>
+        </div>
+        
+        <button onclick="showScreen('add')" class="fixed bottom-20 right-4 w-14 h-14 bg-emerald-500 rounded-full text-white text-2xl shadow-lg">+</button>
+        
+        <div class="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-2 flex justify-around">
+            <button onclick="showScreen('feed')" class="text-center text-emerald-600"><div>📋</div><div class="text-xs">Лента</div></button>
+            <button onclick="showScreen('add')" class="text-center text-gray-400"><div>➕</div><div class="text-xs">Добавить</div></button>
+            <button onclick="showScreen('profile')" class="text-center text-gray-400"><div>👤</div><div class="text-xs">Профиль</div></button>
+        </div>
+    </div>
     
-    (function() {
-        'use strict';
+    <!-- Add Screen -->
+    <div id="screen-add" class="hidden min-h-screen bg-gray-50">
+        <div class="bg-white px-4 py-3 border-b flex items-center gap-3">
+            <button onclick="showScreen('feed')" class="text-2xl">←</button>
+            <h1 class="text-lg font-bold">Добавить находку</h1>
+        </div>
+        <div class="p-4 space-y-4">
+            <div class="bg-white rounded-xl p-4">
+                <label class="block text-sm font-semibold mb-2">Название</label>
+                <input id="itemTitle" type="text" placeholder="Что это?" class="w-full p-3 bg-gray-100 rounded-lg">
+            </div>
+            <div class="bg-white rounded-xl p-4">
+                <label class="block text-sm font-semibold mb-2">Описание</label>
+                <textarea id="itemDesc" placeholder="Состояние, где лежит..." class="w-full p-3 bg-gray-100 rounded-lg h-24"></textarea>
+            </div>
+            <button onclick="publishItem()" class="w-full bg-emerald-500 text-white font-bold py-4 rounded-xl">Опубликовать 🚀</button>
+        </div>
+    </div>
+    
+    <!-- Profile Screen -->
+    <div id="screen-profile" class="hidden min-h-screen bg-gray-50">
+        <div class="bg-emerald-500 px-4 py-6 text-white">
+            <button onclick="showScreen('feed')" class="text-2xl mb-4">←</button>
+            <h1 id="profileName" class="text-xl font-bold">Загрузка...</h1>
+            <p id="profileKarma">⭐ 0 кармы</p>
+        </div>
+        <div class="p-4">
+            <button id="adminPanelBtn" class="hidden w-full bg-purple-500 text-white p-4 rounded-xl font-semibold mb-4" onclick="openAdminPanel()">⚙️ Админ-панель</button>
+            <div class="bg-white rounded-xl p-4">
+                <h3 class="font-bold mb-2">Мои объявления</h3>
+                <p class="text-gray-500 text-sm">Пока нет объявлений</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Creator Modal -->
+<div id="creatorModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full">
+        <div class="text-center mb-4">
+            <div class="text-5xl mb-2">👑</div>
+            <h2 class="text-xl font-bold">Настройка</h2>
+            <p class="text-gray-500 text-sm">Введите токен бота</p>
+        </div>
+        <input id="botToken" type="text" placeholder="123456:ABC..." class="w-full p-3 border rounded-lg mb-4">
+        <button onclick="setupCreator()" class="w-full bg-emerald-500 text-white py-3 rounded-lg font-semibold">Подтвердить</button>
+        <button onclick="closeCreatorModal()" class="w-full py-2 text-gray-500 mt-2">Пропустить</button>
+    </div>
+</div>
+
+<script>
+// ============================================
+// КОНФИГУРАЦИЯ (встроена!)
+// ============================================
+var CONFIG = {
+    API_URL: 'https://pomoechka-mvp.onrender.com',
+    APP_NAME: 'Помоечка кормит'
+};
+
+console.log('✅ CONFIG:', CONFIG.API_URL);
+
+// ============================================
+// API (встроен!)
+// ============================================
+var API = {
+    userId: null,
+    userData: null,
+    
+    init: function(user) {
+        this.userId = user ? String(user.id) : null;
+        this.userData = user;
+        console.log('✅ API init:', this.userId);
+    },
+    
+    request: function(endpoint, options) {
+        options = options || {};
+        var url = CONFIG.API_URL + endpoint;
+        var headers = { 'Content-Type': 'application/json' };
+        if (this.userId) headers['X-Telegram-ID'] = this.userId;
+        if (this.userData) headers['X-Telegram-Data'] = JSON.stringify(this.userData);
         
-        // Глобальное состояние
-        window.App = {
-            currentScreen: 'map',
-            previousScreen: 'map',
-            selectedCategory: 'all',
-            selectedRadius: 2,
-            searchQuery: '',
-            currentLocation: null,
-            uploadedPhoto: null,
-            chatEnabled: true
-        };
+        return fetch(url, {
+            method: options.method || 'GET',
+            headers: headers,
+            body: options.body
+        }).then(function(r) { return r.json(); });
+    }
+};
+
+// ============================================
+// ПРИЛОЖЕНИЕ
+// ============================================
+var currentUser = null;
+var currentUserData = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM готов');
+    setTimeout(startApp, 200);
+});
+
+async function startApp() {
+    console.log('🚀 Запуск...');
+    
+    // Telegram
+    var tg = window.Telegram && window.Telegram.WebApp;
+    if (tg) {
+        try { tg.ready(); tg.expand(); } catch(e) {}
+    }
+    
+    // Пользователь
+    currentUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if (!currentUser) {
+        console.log('⚠️ Мок-пользователь');
+        currentUser = { id: 123456789, first_name: 'Тест', username: 'test' };
+        showDevBanner();
+    }
+    console.log('👤', currentUser.id, currentUser.first_name);
+    
+    // API
+    API.init(currentUser);
+    
+    // Получаем данные с бэкенда
+    try {
+        currentUserData = await API.request('/api/auth/me');
+        console.log('✅ User data:', currentUserData);
+    } catch(e) {
+        console.warn('⚠️ Backend error:', e);
+        currentUserData = { telegram_id: currentUser.id, name: currentUser.first_name, karma: 0 };
+    }
+    
+    // Проверяем права
+    var perms = await checkPermissions();
+    
+    // Показываем приложение
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    
+    // Модалка создателя
+    if (!perms.hasCreator) {
+        document.getElementById('creatorModal').classList.remove('hidden');
+    }
+    
+    // Обновляем профиль
+    updateProfile();
+    loadFeed();
+    
+    console.log('🎉 Готово!');
+}
+
+async function checkPermissions() {
+    var result = { isAdmin: false, isCreator: false, hasCreator: true };
+    try {
+        var r = await API.request('/api/auth/check-admin');
+        result.isAdmin = r.isAdmin || false;
+        result.isCreator = r.isCreator || false;
+    } catch(e) {}
+    try {
+        var c = await API.request('/api/auth/check-creator');
+        result.hasCreator = c.hasCreator !== false;
+    } catch(e) {}
+    
+    if (result.isAdmin || result.isCreator) {
+        document.getElementById('adminBtn').classList.remove('hidden');
+        document.getElementById('adminPanelBtn').classList.remove('hidden');
+    }
+    
+    console.log('🔐 Права:', result);
+    return result;
+}
+
+function updateProfile() {
+    var u = currentUserData || currentUser;
+    document.getElementById('profileName').textContent = u.name || u.first_name || 'Пользователь';
+    document.getElementById('profileKarma').textContent = '⭐ ' + (u.karma || 0) + ' кармы';
+}
+
+async function loadFeed() {
+    try {
+        var items = await API.request('/api/items?status=active');
+        var container = document.getElementById('feedItems');
         
-        console.log('📦 Приложение загружается...');
+        if (!items || items.length === 0) {
+            container.innerHTML = '<div class="text-center py-12 text-gray-500"><div class="text-5xl mb-4">📦</div><p>Пока нет объявлений</p><p class="text-sm">Станьте первым!</p></div>';
+            return;
+        }
         
-        // ==========================================
-        // ИНИЦИАЛИЗАЦИЯ
-        // ==========================================
-        
-        document.addEventListener('DOMContentLoaded', async function() {
-            console.log('📄 DOM загружен');
-            
-            // Ждём загрузки скриптов
-            await waitForScripts();
-            
-            // Запускаем приложение
-            await initApp();
+        container.innerHTML = items.map(function(item) {
+            return '<div class="bg-white rounded-xl p-4 shadow-sm"><h3 class="font-bold">' + item.title + '</h3><p class="text-gray-500 text-sm">' + (item.description || '') + '</p></div>';
+        }).join('');
+    } catch(e) {
+        console.warn('⚠️ Feed error:', e);
+    }
+}
+
+function showScreen(name) {
+    console.log('📱', name);
+    document.querySelectorAll('[id^="screen-"]').forEach(function(el) {
+        el.classList.add('hidden');
+    });
+    var target = document.getElementById('screen-' + name);
+    if (target) target.classList.remove('hidden');
+}
+
+async function publishItem() {
+    var title = document.getElementById('itemTitle').value.trim();
+    var desc = document.getElementById('itemDesc').value.trim();
+    
+    if (!title) {
+        alert('Введите название');
+        return;
+    }
+    
+    try {
+        await API.request('/api/items', {
+            method: 'POST',
+            body: JSON.stringify({ title: title, description: desc, category: 'other' })
         });
-        
-        async function waitForScripts() {
-            let attempts = 0;
-            while (!window.CONFIG && attempts < 50) {
-                await sleep(100);
-                attempts++;
-            }
-            
-            if (!window.CONFIG) {
-                throw new Error('CONFIG не загружен');
-            }
-            
-            console.log('✅ Скрипты загружены');
-        }
-        
-        async function initApp() {
-            try {
-                console.log('🚀 Инициализация приложения...');
-                
-                // 1. Telegram WebApp
-                const tg = window.Telegram?.WebApp;
-                if (tg) {
-                    tg.ready();
-                    tg.expand();
-                    console.log('✅ Telegram WebApp готов');
-                }
-                
-                // 2. Получаем пользователя
-                let user = tg?.initDataUnsafe?.user;
-                
-                if (!user) {
-                    console.log('⚠️ Мок-пользователь для разработки');
-                    user = { id: 123456789, first_name: 'Тест', username: 'test_user' };
-                    showDevBanner();
-                }
-                
-                window.currentUser = user;
-                console.log('👤 Пользователь:', user.id, user.first_name);
-                
-                // 3. Инициализируем API
-                if (window.API) {
-                    await API.init(user);
-                    console.log('✅ API инициализирован');
-                }
-                
-                // 4. Загружаем данные пользователя
-                await loadUserData();
-                
-                // 5. Проверяем права
-                await checkPermissions();
-                
-                // 6. Показываем приложение
-                hideAuthScreen();
-                showMainApp();
-                
-                // 7. Показываем начальный экран
-                showScreen('feed');
-                
-                // 8. Загружаем данные
-                await loadFeedData();
-                
-                console.log('🎉 Приложение готово!');
-                
-            } catch (error) {
-                console.error('❌ Ошибка инициализации:', error);
-                showError(error.message);
-            }
-        }
-        
-        async function loadUserData() {
-            try {
-                if (window.API) {
-                    const userData = await API.getCurrentUser();
-                    window.currentUserData = userData;
-                    updateProfileUI(userData);
-                }
-            } catch (e) {
-                console.warn('⚠️ Не удалось загрузить данные:', e.message);
-                window.currentUserData = {
-                    telegram_id: window.currentUser.id,
-                    name: window.currentUser.first_name,
-                    karma: 0
-                };
-            }
-        }
-        
-        async function checkPermissions() {
-            if (!window.API) return;
-            
-            try {
-                const rights = await API.request('/api/auth/check-admin').catch(() => ({}));
-                const isAdmin = rights.isAdmin || rights.isCreator;
-                
-                if (isAdmin) {
-                    document.getElementById('adminPanelBtn')?.classList.remove('hidden');
-                    document.getElementById('adminBtnMap')?.classList.remove('hidden');
-                }
-                
-                const creator = await API.request('/api/auth/check-creator').catch(() => ({ hasCreator: true }));
-                if (!creator.hasCreator) {
-                    showCreatorSetupModal();
-                }
-                
-                window.userPermissions = rights;
-            } catch (e) {
-                console.warn('⚠️ Ошибка проверки прав:', e.message);
-            }
-        }
-        
-        // ==========================================
-        // UI ФУНКЦИИ
-        // ==========================================
-        
-        window.showScreen = function(name) {
-            console.log('📱 Экран:', name);
-            
-            if (App.currentScreen !== 'detail' && name === 'detail') {
-                App.previousScreen = App.currentScreen;
-            }
-            
-            // Скрываем все экраны
-            document.querySelectorAll('.screen').forEach(el => {
-                el.classList.remove('active');
-            });
-            
-            // Показываем нужный
-            const screen = document.getElementById('screen-' + name);
-            if (screen) {
-                screen.classList.add('active');
-                App.currentScreen = name;
-            }
-            
-            // Навигация
-            document.querySelectorAll('.nav-item').forEach(el => {
-                const isActive = el.dataset.screen === name;
-                el.classList.toggle('text-emerald-600', isActive);
-                el.classList.toggle('text-gray-400', !isActive);
-            });
-            
-            // Инициализация экрана
-            if (name === 'feed') loadFeedData();
-            if (name === 'map') loadMapData();
-            if (name === 'profile') loadProfileData();
-            if (name === 'add') initAddScreen();
-        };
-        
-        function hideAuthScreen() {
-            const el = document.getElementById('authScreen');
-            if (el) el.style.display = 'none';
-        }
-        
-        function showMainApp() {
-            const el = document.getElementById('mainApp');
-            if (el) {
-                el.style.display = 'block';
-                el.classList.remove('hidden');
-            }
-        }
-        
-        function showDevBanner() {
-            const banner = document.createElement('div');
-            banner.innerHTML = `
-                <div style="position:fixed;top:0;left:0;right:0;background:linear-gradient(90deg,#f59e0b,#d97706);color:white;padding:8px;text-align:center;font-size:13px;z-index:10000;">
-                    ⚠️ Режим разработки
-                    <button onclick="this.parentElement.remove()" style="margin-left:12px;background:rgba(0,0,0,0.2);border:none;color:white;padding:2px 8px;border-radius:4px;cursor:pointer;">✕</button>
-                </div>
-            `;
-            document.body.prepend(banner);
-        }
-        
-        function showError(message) {
-            const el = document.getElementById('authError');
-            if (el) {
-                el.innerHTML = `<p class="font-semibold">⛔ Ошибка</p><p class="text-sm mt-1">${message}</p>`;
-                el.classList.remove('hidden');
-            }
-            document.getElementById('authStatus')?.classList.add('hidden');
-        }
-        
-        function updateProfileUI(user) {
-            if (!user) return;
-            
-            const avatar = document.getElementById('userAvatar');
-            const name = document.getElementById('userName');
-            const username = document.getElementById('userUsername');
-            const karma = document.getElementById('userKarma');
-            
-            if (avatar) avatar.textContent = (user.name || '?')[0].toUpperCase();
-            if (name) name.textContent = user.name || 'Пользователь';
-            if (username) username.textContent = user.username ? `@${user.username}` : '';
-            if (karma) karma.textContent = user.karma || 0;
-            
-            // Обновляем кнопки профиля
-            document.querySelectorAll('[id^="profileBtn"]').forEach(btn => {
-                btn.textContent = (user.name || '?')[0].toUpperCase();
-            });
-        }
-        
-        // ==========================================
-        // ДАННЫЕ
-        // ==========================================
-        
-        async function loadFeedData() {
-            const container = document.getElementById('feedItems');
-            if (!container) return;
-            
-            try {
-                const items = window.API ? await API.getItems({}) : getMockItems();
-                
-                if (items.length === 0) {
-                    container.innerHTML = `
-                        <div class="text-center py-12">
-                            <div class="text-6xl mb-4">📭</div>
-                            <p class="text-gray-500">Пока нет находок</p>
-                            <p class="text-sm text-gray-400 mt-1">Будьте первым!</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                container.innerHTML = items.map(item => renderItemCard(item)).join('');
-                
-            } catch (e) {
-                console.error('❌ Ошибка загрузки:', e);
-                container.innerHTML = `<p class="text-center text-red-500 py-4">Ошибка загрузки</p>`;
-            }
-        }
-        
-        async function loadMapData() {
-            const container = document.getElementById('mapMarkers');
-            const countEl = document.getElementById('mapItemsCount');
-            if (!container) return;
-            
-            try {
-                const items = window.API ? await API.getItems({ status: 'active' }) : getMockItems();
-                
-                if (countEl) {
-                    countEl.textContent = `${items.length} находок в радиусе ${App.selectedRadius} км`;
-                }
-                
-                // Рендерим маркеры (демо-позиции)
-                const positions = [
-                    { top: '25%', left: '33%' },
-                    { top: '40%', left: '65%' },
-                    { top: '60%', left: '25%' },
-                    { top: '70%', left: '55%' }
-                ];
-                
-                container.innerHTML = items.slice(0, 4).map((item, i) => {
-                    const pos = positions[i] || positions[0];
-                    return `
-                        <div class="absolute cursor-pointer" style="top:${pos.top};left:${pos.left};transform:translate(-50%,-50%);" onclick="showItemDetail(${item.id})">
-                            <div class="w-12 h-12 bg-emerald-500 rounded-full flex items-center justify-center text-2xl shadow-lg border-2 border-white">
-                                ${item.emoji || '📦'}
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                
-            } catch (e) {
-                console.error('❌ Ошибка карты:', e);
-            }
-        }
-        
-        async function loadProfileData() {
-            try {
-                if (window.currentUserData) {
-                    updateProfileUI(window.currentUserData);
-                }
-                
-                // Загружаем объявления пользователя
-                if (window.API && window.currentUser) {
-                    const items = await API.getItems({ authorId: window.currentUser.id });
-                    const container = document.getElementById('myItemsList');
-                    
-                    if (container) {
-                        if (items.length === 0) {
-                            container.innerHTML = '<p class="text-gray-500 text-center py-4">У вас пока нет объявлений</p>';
-                        } else {
-                            container.innerHTML = items.map(item => `
-                                <div class="flex items-center gap-3 p-2 border border-gray-100 rounded-xl" onclick="showItemDetail(${item.id})">
-                                    <span class="text-2xl">${item.emoji || '📦'}</span>
-                                    <div class="flex-1">
-                                        <p class="text-sm font-semibold">${escapeHtml(item.title)}</p>
-                                        <p class="text-xs text-${item.status === 'active' ? 'emerald' : 'gray'}-600">
-                                            ${item.status === 'active' ? '🟢 Активно' : item.status === 'taken' ? '✅ Забрали' : '⏰ Просрочено'}
-                                        </p>
-                                    </div>
-                                </div>
-                            `).join('');
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error('❌ Ошибка профиля:', e);
-            }
-        }
-        
-        function renderItemCard(item) {
-            const statusBadge = item.status === 'taken' ? '<span class="absolute top-2 left-2 bg-gray-800/80 text-white px-2 py-1 rounded-full text-xs">✅ Забрали</span>' :
-                               item.status === 'expired' ? '<span class="absolute top-2 left-2 bg-amber-500/80 text-white px-2 py-1 rounded-full text-xs">⏰ Просрочено</span>' : '';
-            
-            return `
-                <div class="bg-white rounded-2xl shadow-sm overflow-hidden ${item.status !== 'active' ? 'opacity-60' : ''}" onclick="showItemDetail(${item.id})">
-                    <div class="relative h-40 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-6xl">
-                        ${item.emoji || '📦'}
-                        ${statusBadge}
-                        <span class="absolute top-2 right-2 bg-white/90 text-gray-700 text-xs font-bold px-2 py-1 rounded-full">
-                            📍 ${item.distance || '?'}м
-                        </span>
-                    </div>
-                    <div class="p-3">
-                        <h3 class="font-bold text-gray-800">${escapeHtml(item.title)}</h3>
-                        <p class="text-xs text-gray-500 mt-1">${escapeHtml(item.address || 'Адрес не указан')}</p>
-                        <div class="flex items-center justify-between mt-2">
-                            <span class="text-xs text-gray-600">${escapeHtml(item.author_name || 'Аноним')} • ⭐ ${item.author_karma || 0}</span>
-                            ${item.status === 'active' ? `<span class="text-xs text-emerald-600 font-semibold">⏱ ${item.time_remaining || '?'}</span>` : ''}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        function getMockItems() {
-            return [
-                { id: 1, title: 'Диван в хорошем состоянии', emoji: '🛋️', status: 'active', distance: 350, address: 'ул. Льва Толстого', author_name: 'Михаил', author_karma: 48, time_remaining: '5ч' },
-                { id: 2, title: 'Коробка книг', emoji: '📚', status: 'active', distance: 1200, address: 'Комсомольский пр-т', author_name: 'Елена', author_karma: 156, time_remaining: '4ч' },
-                { id: 3, title: 'Старый телевизор', emoji: '📺', status: 'taken', distance: 800, address: 'ул. Усачёва', author_name: 'Андрей', author_karma: 89 }
-            ];
-        }
-        
-        // ==========================================
-        // ДЕЙСТВИЯ
-        // ==========================================
-        
-        window.showItemDetail = async function(id) {
-            console.log('📄 Детали:', id);
-            
-            const container = document.getElementById('detailContent');
-            if (!container) return;
-            
-            try {
-                const item = window.API ? await API.getItem(id) : getMockItems().find(i => i.id === id);
-                
-                if (!item) {
-                    container.innerHTML = '<p class="text-center py-8 text-red-500">Объявление не найдено</p>';
-                    showScreen('detail');
-                    return;
-                }
-                
-                container.innerHTML = `
-                    <div class="relative h-56 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-8xl">
-                        ${item.emoji || '📦'}
-                        <button onclick="showScreen('${App.previousScreen || 'feed'}')" class="absolute top-4 left-4 w-10 h-10 bg-white/90 rounded-full flex items-center justify-center text-xl shadow">←</button>
-                    </div>
-                    <div class="p-4 space-y-4">
-                        <div>
-                            <h1 class="text-xl font-bold text-gray-800">${escapeHtml(item.title)}</h1>
-                            <p class="text-sm text-gray-500 mt-1">${escapeHtml(item.category || 'Прочее')}</p>
-                        </div>
-                        
-                        <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                            <div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center text-lg font-bold">
-                                ${(item.author_name || '?')[0]}
-                            </div>
-                            <div>
-                                <p class="font-semibold">${escapeHtml(item.author_name || 'Аноним')}</p>
-                                <p class="text-xs text-gray-500">⭐ ${item.author_karma || 0} кармы</p>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-white rounded-xl p-4 border border-gray-100">
-                            <h3 class="font-semibold text-gray-800 mb-2">📝 Описание</h3>
-                            <p class="text-sm text-gray-600">${escapeHtml(item.description || 'Описание отсутствует')}</p>
-                        </div>
-                        
-                        <div class="bg-white rounded-xl p-4 border border-gray-100">
-                            <h3 class="font-semibold text-gray-800 mb-2">📍 Где забрать</h3>
-                            <p class="text-sm text-gray-600">${escapeHtml(item.address || 'Адрес не указан')}</p>
-                            <button onclick="openInMaps(${item.lat || 55.75}, ${item.lng || 37.62})" class="mt-2 w-full p-3 bg-blue-50 text-blue-700 rounded-xl font-semibold">
-                                🗺️ Открыть на карте
-                            </button>
-                        </div>
-                        
-                        ${item.status === 'active' ? `
-                            <button onclick="takeItem(${item.id})" class="w-full bg-emerald-500 text-white font-bold py-4 rounded-2xl text-lg shadow-lg">
-                                Заберу! 🙋‍♂️
-                            </button>
-                        ` : ''}
-                    </div>
-                `;
-                
-                showScreen('detail');
-                
-            } catch (e) {
-                console.error('❌ Ошибка загрузки:', e);
-            }
-        };
-        
-        window.takeItem = async function(id) {
-            try {
-                if (window.API) {
-                    await API.markAsTaken(id);
-                }
-                showSuccessModal('🙌', 'Отлично!', 'Автор получит уведомление');
-            } catch (e) {
-                alert('Ошибка: ' + e.message);
-            }
-        };
-        
-        window.publishItem = async function() {
-            const title = document.getElementById('itemTitle')?.value?.trim();
-            const description = document.getElementById('itemDescription')?.value?.trim();
-            const selectedCat = document.querySelector('.category-chip.selected');
-            
-            if (!title) {
-                alert('Введите название');
-                return;
-            }
-            
-            if (!selectedCat) {
-                alert('Выберите категорию');
-                return;
-            }
-            
-            try {
-                if (window.API) {
-                    await API.createItem({
-                        title,
-                        description,
-                        category: selectedCat.dataset.category,
-                        lat: App.currentLocation?.lat,
-                        lng: App.currentLocation?.lng,
-                        address: document.getElementById('locationDetails')?.value || '',
-                        chat_enabled: App.chatEnabled
-                    });
-                }
-                
-                showSuccessModal('🎉', 'Опубликовано!', '+10 кармы');
-                
-                // Очищаем форму
-                document.getElementById('itemTitle').value = '';
-                document.getElementById('itemDescription').value = '';
-                document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('selected', 'bg-emerald-500', 'text-white'));
-                
-            } catch (e) {
-                alert('Ошибка: ' + e.message);
-            }
-        };
-        
-        window.selectCategory = function(el) {
-            document.querySelectorAll('.category-chip').forEach(c => {
-                c.classList.remove('selected', 'bg-emerald-500', 'text-white');
-                c.classList.add('bg-gray-100');
-            });
-            el.classList.add('selected', 'bg-emerald-500', 'text-white');
-            el.classList.remove('bg-gray-100');
-        };
-        
-        window.setCategory = function(cat) {
-            App.selectedCategory = cat;
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                const isActive = btn.dataset.category === cat;
-                btn.classList.toggle('border-emerald-500', isActive);
-                btn.classList.toggle('text-emerald-600', isActive);
-                btn.classList.toggle('border-transparent', !isActive);
-                btn.classList.toggle('text-gray-500', !isActive);
-            });
-            loadFeedData();
-        };
-        
-        window.setRadius = function(km) {
-            App.selectedRadius = km;
-            document.querySelectorAll('.radius-btn').forEach(btn => {
-                const isActive = parseFloat(btn.dataset.radius) === km;
-                btn.classList.toggle('bg-emerald-500', isActive);
-                btn.classList.toggle('text-white', isActive);
-                btn.classList.toggle('bg-gray-100', !isActive);
-            });
-            loadMapData();
-        };
-        
-        window.handleSearch = function(query) {
-            App.searchQuery = query;
-            loadFeedData();
-        };
-        
-        window.toggleChat = function() {
-            App.chatEnabled = !App.chatEnabled;
-            const toggle = document.getElementById('chatToggle');
-            if (toggle) {
-                toggle.classList.toggle('bg-emerald-500', App.chatEnabled);
-                toggle.classList.toggle('bg-gray-300', !App.chatEnabled);
-            }
-        };
-        
-        window.getCurrentLocation = function() {
-            const statusEl = document.getElementById('locationStatus');
-            const infoEl = document.getElementById('locationInfo');
-            
-            if (statusEl) statusEl.textContent = '⏳';
-            
-            if ('geolocation' in navigator) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        App.currentLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-                        if (statusEl) statusEl.textContent = '✅';
-                        if (infoEl) infoEl.textContent = `📍 ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`;
-                    },
-                    (err) => {
-                        if (statusEl) statusEl.textContent = '❌';
-                        if (infoEl) infoEl.textContent = 'Не удалось определить местоположение';
-                    }
-                );
-            } else {
-                if (statusEl) statusEl.textContent = '❌';
-            }
-        };
-        
-        function initAddScreen() {
-            App.uploadedPhoto = null;
-            App.chatEnabled = true;
-            
-            const toggle = document.getElementById('chatToggle');
-            if (toggle) {
-                toggle.classList.add('bg-emerald-500');
-                toggle.classList.remove('bg-gray-300');
-            }
-            
-            document.querySelectorAll('.category-chip').forEach(c => {
-                c.classList.remove('selected', 'bg-emerald-500', 'text-white');
-                c.classList.add('bg-gray-100');
-            });
-        }
-        
-        // ==========================================
-        // МОДАЛКИ
-        // ==========================================
-        
-        window.showSuccessModal = function(emoji, title, text) {
-            document.getElementById('successEmoji').textContent = emoji;
-            document.getElementById('successTitle').textContent = title;
-            document.getElementById('successText').textContent = text;
-            document.getElementById('successModal').classList.remove('hidden');
-        };
-        
-        window.hideModal = function() {
-            document.getElementById('successModal').classList.add('hidden');
-            showScreen(App.previousScreen || 'feed');
-        };
-        
-        window.showCreatorSetupModal = function() {
-            document.getElementById('creatorSetupModal').classList.remove('hidden');
-        };
-        
-        window.hideCreatorSetupModal = function() {
-            document.getElementById('creatorSetupModal').classList.add('hidden');
-        };
-        
-        window.setupCreator = async function() {
-            const token = document.getElementById('botTokenInput')?.value?.trim();
-            
-            if (!token || !/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
-                alert('Введите корректный токен бота');
-                return;
-            }
-            
-            try {
-                if (window.API) {
-                    await API.request('/api/auth/setup-creator', {
-                        method: 'POST',
-                        body: JSON.stringify({ botToken: token })
-                    });
-                }
-                
-                hideCreatorSetupModal();
-                alert('🎉 Вы стали создателем системы!');
-                document.getElementById('adminPanelBtn')?.classList.remove('hidden');
-                
-            } catch (e) {
-                alert('Ошибка: ' + e.message);
-            }
-        };
-        
-        window.openAdminPanel = function() {
-            window.location.href = 'admin.html';
-        };
-        
-        window.openInMaps = function(lat, lng) {
-            window.mapLat = lat;
-            window.mapLng = lng;
-            document.getElementById('mapProviderModal').classList.remove('hidden');
-        };
-        
-        window.openMapProvider = function(provider) {
-            document.getElementById('mapProviderModal').classList.add('hidden');
-            
-            const lat = window.mapLat || 55.75;
-            const lng = window.mapLng || 37.62;
-            
-            const urls = {
-                'yandex': `https://yandex.ru/maps/?pt=${lng},${lat}&z=16`,
-                '2gis': `https://2gis.ru/search/${lat},${lng}`,
-                'google': `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
-            };
-            
-            window.open(urls[provider], '_blank');
-        };
-        
-        // ==========================================
-        // УТИЛИТЫ
-        // ==========================================
-        
-        function sleep(ms) {
-            return new Promise(r => setTimeout(r, ms));
-        }
-        
-        function escapeHtml(str) {
-            if (!str) return '';
-            return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;');
-        }
-        
-        window.escapeHtml = escapeHtml;
-        
-    })();
-    </script>
+        alert('✅ Опубликовано!');
+        document.getElementById('itemTitle').value = '';
+        document.getElementById('itemDesc').value = '';
+        showScreen('feed');
+        loadFeed();
+    } catch(e) {
+        alert('Ошибка: ' + e.message);
+    }
+}
+
+async function setupCreator() {
+    var token = document.getElementById('botToken').value.trim();
+    if (!token) { alert('Введите токен'); return; }
+    
+    try {
+        await API.request('/api/auth/setup-creator', {
+            method: 'POST',
+            body: JSON.stringify({ botToken: token })
+        });
+        closeCreatorModal();
+        alert('🎉 Вы создатель!');
+        document.getElementById('adminBtn').classList.remove('hidden');
+        document.getElementById('adminPanelBtn').classList.remove('hidden');
+    } catch(e) {
+        alert('Ошибка: ' + e.message);
+    }
+}
+
+function closeCreatorModal() {
+    document.getElementById('creatorModal').classList.add('hidden');
+}
+
+function openAdminPanel() {
+    window.location.href = 'admin.html';
+}
+
+function showDevBanner() {
+    var d = document.createElement('div');
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#f59e0b;color:white;padding:8px;text-align:center;z-index:9999;font-size:13px;';
+    d.textContent = '⚠️ Режим разработки';
+    document.body.prepend(d);
+}
+</script>
 
 </body>
 </html>
