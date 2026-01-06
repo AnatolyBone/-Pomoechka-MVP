@@ -8,16 +8,24 @@
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        .screen { display: none; }
+        .screen.active { display: block; }
+    </style>
 </head>
 <body class="bg-gray-100">
 
 <!-- Auth Screen -->
-<div id="authScreen" class="min-h-screen flex items-center justify-center p-4">
+<div id="authScreen" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-emerald-50 to-teal-100">
     <div class="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
         <div class="text-6xl mb-4">🗑️</div>
-        <h1 class="text-2xl font-bold mb-2">Помоечка кормит</h1>
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">Помоечка кормит</h1>
         <p class="text-gray-500 mb-4">Загрузка...</p>
-        <div id="authError" class="hidden text-red-500"></div>
+        <div class="animate-pulse flex items-center justify-center gap-2 text-gray-400">
+            <div class="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
+            Подключение...
+        </div>
     </div>
 </div>
 
@@ -25,84 +33,199 @@
 <div id="mainApp" class="hidden">
     
     <!-- Feed Screen -->
-    <div id="screen-feed" class="min-h-screen bg-gray-50">
-        <div class="bg-white px-4 py-3 border-b flex justify-between items-center">
-            <h1 class="text-xl font-bold">Помоечка 🗑️✨</h1>
-            <div class="flex gap-2">
-                <button id="adminBtn" class="hidden w-10 h-10 rounded-full bg-purple-500 text-white" onclick="openAdminPanel()">⚙️</button>
-                <button class="w-10 h-10 rounded-full bg-emerald-500 text-white font-bold" onclick="showScreen('profile')">👤</button>
+    <div id="screen-feed" class="screen active min-h-screen bg-gray-50 pb-20">
+        <div class="bg-white px-4 py-3 border-b border-gray-200 sticky top-0 z-10">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-xl font-bold text-gray-800">Помоечка 🗑️✨</h1>
+                    <p class="text-xs text-gray-500">Находки рядом с тобой</p>
+                </div>
+                <div class="flex gap-2">
+                    <button id="adminBtn" class="hidden w-10 h-10 rounded-full bg-purple-500 text-white flex items-center justify-center" onclick="openAdminPanel()">⚙️</button>
+                    <button class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold flex items-center justify-center" onclick="showScreen('profile')">👤</button>
+                </div>
             </div>
         </div>
         
-        <div id="feedItems" class="p-4 space-y-4 pb-24">
+        <div id="feedItems" class="p-4 space-y-4">
             <div class="text-center py-12 text-gray-500">
-                <div class="text-5xl mb-4">📦</div>
-                <p>Загрузка объявлений...</p>
+                <div class="text-5xl mb-4">⏳</div>
+                <p>Загрузка...</p>
             </div>
         </div>
         
-        <button onclick="showScreen('add')" class="fixed bottom-20 right-4 w-14 h-14 bg-emerald-500 rounded-full text-white text-2xl shadow-lg">+</button>
+        <button onclick="showScreen('add')" class="fixed bottom-24 right-4 w-14 h-14 bg-emerald-500 hover:bg-emerald-600 rounded-full text-white text-3xl shadow-lg z-20 transition">+</button>
         
-        <div class="fixed bottom-0 left-0 right-0 bg-white border-t px-4 py-2 flex justify-around">
-            <button onclick="showScreen('feed')" class="text-center text-emerald-600"><div>📋</div><div class="text-xs">Лента</div></button>
-            <button onclick="showScreen('add')" class="text-center text-gray-400"><div>➕</div><div class="text-xs">Добавить</div></button>
-            <button onclick="showScreen('profile')" class="text-center text-gray-400"><div>👤</div><div class="text-xs">Профиль</div></button>
+        <!-- Bottom Navigation -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 flex justify-around z-10">
+            <button onclick="showScreen('feed')" class="flex flex-col items-center py-1 px-4 text-emerald-600">
+                <span class="text-xl">📋</span>
+                <span class="text-xs font-semibold">Лента</span>
+            </button>
+            <button onclick="showScreen('add')" class="flex flex-col items-center py-1 px-4 text-gray-400">
+                <span class="text-xl">➕</span>
+                <span class="text-xs">Добавить</span>
+            </button>
+            <button onclick="showScreen('profile')" class="flex flex-col items-center py-1 px-4 text-gray-400">
+                <span class="text-xl">👤</span>
+                <span class="text-xs">Профиль</span>
+            </button>
         </div>
     </div>
     
     <!-- Add Screen -->
-    <div id="screen-add" class="hidden min-h-screen bg-gray-50">
-        <div class="bg-white px-4 py-3 border-b flex items-center gap-3">
-            <button onclick="showScreen('feed')" class="text-2xl">←</button>
-            <h1 class="text-lg font-bold">Добавить находку</h1>
+    <div id="screen-add" class="screen min-h-screen bg-gray-50 pb-6">
+        <div class="bg-white px-4 py-3 border-b border-gray-200 sticky top-0 z-10">
+            <div class="flex items-center gap-3">
+                <button onclick="showScreen('feed')" class="text-2xl text-gray-600">←</button>
+                <h1 class="text-lg font-bold text-gray-800">Добавить находку</h1>
+            </div>
         </div>
+        
         <div class="p-4 space-y-4">
-            <div class="bg-white rounded-xl p-4">
-                <label class="block text-sm font-semibold mb-2">Название</label>
-                <input id="itemTitle" type="text" placeholder="Что это?" class="w-full p-3 bg-gray-100 rounded-lg">
+            <!-- Notice -->
+            <div class="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <p class="text-sm text-amber-800">
+                    ⚠️ <strong>Важно:</strong> Публикуйте только то, что уже лежит у контейнеров!
+                </p>
             </div>
-            <div class="bg-white rounded-xl p-4">
-                <label class="block text-sm font-semibold mb-2">Описание</label>
-                <textarea id="itemDesc" placeholder="Состояние, где лежит..." class="w-full p-3 bg-gray-100 rounded-lg h-24"></textarea>
+            
+            <!-- Title -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Название *</label>
+                <input id="itemTitle" type="text" placeholder="Что это? (диван, книги, стулья...)" 
+                       class="w-full p-3 bg-gray-50 rounded-lg border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none">
             </div>
-            <button onclick="publishItem()" class="w-full bg-emerald-500 text-white font-bold py-4 rounded-xl">Опубликовать 🚀</button>
+            
+            <!-- Description -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Описание</label>
+                <textarea id="itemDesc" placeholder="Состояние, размер, где лежит..." 
+                          class="w-full p-3 bg-gray-50 rounded-lg border border-gray-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none h-24 resize-none"></textarea>
+            </div>
+            
+            <!-- Category -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Категория</label>
+                <div class="flex flex-wrap gap-2" id="categoryPicker">
+                    <button type="button" class="cat-btn px-3 py-2 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium" data-cat="furniture" onclick="selectCategory(this)">🛋️ Мебель</button>
+                    <button type="button" class="cat-btn px-3 py-2 bg-gray-100 text-gray-600 rounded-full text-sm" data-cat="electronics" onclick="selectCategory(this)">📺 Техника</button>
+                    <button type="button" class="cat-btn px-3 py-2 bg-gray-100 text-gray-600 rounded-full text-sm" data-cat="books" onclick="selectCategory(this)">📚 Книги</button>
+                    <button type="button" class="cat-btn px-3 py-2 bg-gray-100 text-gray-600 rounded-full text-sm" data-cat="clothing" onclick="selectCategory(this)">👕 Одежда</button>
+                    <button type="button" class="cat-btn px-3 py-2 bg-gray-100 text-gray-600 rounded-full text-sm" data-cat="other" onclick="selectCategory(this)">📦 Другое</button>
+                </div>
+            </div>
+            
+            <!-- Info -->
+            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3">
+                <p class="text-sm text-blue-800">
+                    ⏰ Объявление будет активно <strong>6 часов</strong>. Вы получите <strong>+10 кармы</strong>!
+                </p>
+            </div>
+            
+            <!-- Submit -->
+            <button onclick="publishItem()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-xl text-lg shadow-md transition">
+                Опубликовать 🚀
+            </button>
         </div>
     </div>
     
     <!-- Profile Screen -->
-    <div id="screen-profile" class="hidden min-h-screen bg-gray-50">
-        <div class="bg-emerald-500 px-4 py-6 text-white">
+    <div id="screen-profile" class="screen min-h-screen bg-gray-50 pb-6">
+        <div class="bg-gradient-to-br from-emerald-500 to-teal-600 px-4 py-6 text-white">
             <button onclick="showScreen('feed')" class="text-2xl mb-4">←</button>
-            <h1 id="profileName" class="text-xl font-bold">Загрузка...</h1>
-            <p id="profileKarma">⭐ 0 кармы</p>
+            <div class="flex items-center gap-4">
+                <div id="profileAvatar" class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold">?</div>
+                <div>
+                    <h1 id="profileName" class="text-xl font-bold">Загрузка...</h1>
+                    <p id="profileUsername" class="text-emerald-100 text-sm">@username</p>
+                </div>
+            </div>
+            <div class="mt-4 flex items-center gap-2">
+                <div class="bg-yellow-400 text-yellow-900 px-4 py-2 rounded-full flex items-center gap-2 font-bold">
+                    <span>⭐</span>
+                    <span id="profileKarma">0</span>
+                    <span class="font-normal text-sm">кармы</span>
+                </div>
+            </div>
         </div>
-        <div class="p-4">
-            <button id="adminPanelBtn" class="hidden w-full bg-purple-500 text-white p-4 rounded-xl font-semibold mb-4" onclick="openAdminPanel()">⚙️ Админ-панель</button>
-            <div class="bg-white rounded-xl p-4">
-                <h3 class="font-bold mb-2">Мои объявления</h3>
-                <p class="text-gray-500 text-sm">Пока нет объявлений</p>
+        
+        <div class="p-4 space-y-4">
+            <!-- Stats -->
+            <div class="grid grid-cols-3 gap-3">
+                <div class="bg-white rounded-xl p-4 text-center shadow-sm">
+                    <div id="statPublished" class="text-2xl font-bold text-emerald-600">0</div>
+                    <div class="text-xs text-gray-500">Выложено</div>
+                </div>
+                <div class="bg-white rounded-xl p-4 text-center shadow-sm">
+                    <div id="statTaken" class="text-2xl font-bold text-purple-600">0</div>
+                    <div class="text-xs text-gray-500">Забрали</div>
+                </div>
+                <div class="bg-white rounded-xl p-4 text-center shadow-sm">
+                    <div id="statSaved" class="text-2xl font-bold text-orange-600">~0кг</div>
+                    <div class="text-xs text-gray-500">Спасено</div>
+                </div>
+            </div>
+            
+            <!-- Admin Button -->
+            <button id="adminPanelBtn" class="hidden w-full bg-purple-500 hover:bg-purple-600 text-white p-4 rounded-xl font-semibold flex items-center justify-center gap-2 transition" onclick="openAdminPanel()">
+                ⚙️ Админ-панель
+            </button>
+            
+            <!-- My Items -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <h3 class="font-bold text-gray-800 mb-3">📦 Мои объявления</h3>
+                <div id="myItems" class="space-y-2">
+                    <p class="text-gray-500 text-sm text-center py-4">Нет активных объявлений</p>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Creator Modal -->
+<!-- Creator Setup Modal -->
 <div id="creatorModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-    <div class="bg-white rounded-2xl p-6 max-w-sm w-full">
-        <div class="text-center mb-4">
-            <div class="text-5xl mb-2">👑</div>
-            <h2 class="text-xl font-bold">Настройка</h2>
-            <p class="text-gray-500 text-sm">Введите токен бота</p>
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <div class="text-center mb-6">
+            <div class="text-5xl mb-3">👑</div>
+            <h2 class="text-xl font-bold text-gray-800">Добро пожаловать!</h2>
+            <p class="text-gray-500 text-sm mt-1">Вы первый пользователь. Настройте систему.</p>
         </div>
-        <input id="botToken" type="text" placeholder="123456:ABC..." class="w-full p-3 border rounded-lg mb-4">
-        <button onclick="setupCreator()" class="w-full bg-emerald-500 text-white py-3 rounded-lg font-semibold">Подтвердить</button>
-        <button onclick="closeCreatorModal()" class="w-full py-2 text-gray-500 mt-2">Пропустить</button>
+        
+        <div class="mb-4">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Токен бота от @BotFather</label>
+            <input id="botToken" type="text" placeholder="123456789:ABCdef..." 
+                   class="w-full p-3 border border-gray-300 rounded-lg focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none">
+        </div>
+        
+        <div class="text-xs text-gray-500 mb-4">
+            <p>📝 Откройте @BotFather → /mybots → API Token</p>
+        </div>
+        
+        <button onclick="setupCreator()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-lg font-semibold transition">
+            ✅ Подтвердить
+        </button>
+        <button onclick="closeCreatorModal()" class="w-full py-2 text-gray-500 mt-2">
+            Пропустить
+        </button>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div id="successModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+        <div class="text-6xl mb-4">🎉</div>
+        <h2 class="text-xl font-bold text-gray-800 mb-2">Опубликовано!</h2>
+        <p class="text-gray-600 mb-4">+10 кармы получено</p>
+        <button onclick="closeSuccessModal()" class="w-full bg-emerald-500 text-white py-3 rounded-lg font-semibold">
+            Отлично!
+        </button>
     </div>
 </div>
 
 <script>
 // ============================================
-// КОНФИГУРАЦИЯ (встроена!)
+// КОНФИГУРАЦИЯ
 // ============================================
 var CONFIG = {
     API_URL: 'https://pomoechka-mvp.onrender.com',
@@ -112,39 +235,71 @@ var CONFIG = {
 console.log('✅ CONFIG:', CONFIG.API_URL);
 
 // ============================================
-// API (встроен!)
+// API
 // ============================================
 var API = {
     userId: null,
-    userData: null,
+    userName: null,
     
     init: function(user) {
-        this.userId = user ? String(user.id) : null;
-        this.userData = user;
+        if (user) {
+            this.userId = String(user.id);
+            this.userName = user.first_name || 'User';
+        }
         console.log('✅ API init:', this.userId);
     },
     
     request: function(endpoint, options) {
+        var self = this;
         options = options || {};
         var url = CONFIG.API_URL + endpoint;
-        var headers = { 'Content-Type': 'application/json' };
-        if (this.userId) headers['X-Telegram-ID'] = this.userId;
-        if (this.userData) headers['X-Telegram-Data'] = JSON.stringify(this.userData);
         
-        return fetch(url, {
+        var headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (self.userId) {
+            headers['X-Telegram-ID'] = self.userId;
+        }
+        
+        var fetchOptions = {
             method: options.method || 'GET',
-            headers: headers,
-            body: options.body
-        }).then(function(r) { return r.json(); });
+            headers: headers
+        };
+        
+        if (options.body) {
+            fetchOptions.body = options.body;
+        }
+        
+        console.log('📤', fetchOptions.method, endpoint);
+        
+        return fetch(url, fetchOptions)
+            .then(function(response) {
+                return response.json().then(function(data) {
+                    if (!response.ok) {
+                        console.error('❌ API error:', response.status, data);
+                        throw new Error(data.error || 'HTTP ' + response.status);
+                    }
+                    return data;
+                });
+            })
+            .catch(function(error) {
+                console.error('❌ Fetch error:', error);
+                throw error;
+            });
     }
 };
 
 // ============================================
-// ПРИЛОЖЕНИЕ
+// СОСТОЯНИЕ ПРИЛОЖЕНИЯ
 // ============================================
 var currentUser = null;
 var currentUserData = null;
+var selectedCategory = 'furniture';
 
+// ============================================
+// ЗАПУСК
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
     console.log('📄 DOM готов');
     setTimeout(startApp, 200);
@@ -156,17 +311,23 @@ async function startApp() {
     // Telegram
     var tg = window.Telegram && window.Telegram.WebApp;
     if (tg) {
-        try { tg.ready(); tg.expand(); } catch(e) {}
+        try { 
+            tg.ready(); 
+            tg.expand(); 
+            console.log('✅ Telegram WebApp ready');
+        } catch(e) {
+            console.warn('⚠️ TG error:', e);
+        }
     }
     
     // Пользователь
     currentUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
     if (!currentUser) {
         console.log('⚠️ Мок-пользователь');
-        currentUser = { id: 123456789, first_name: 'Тест', username: 'test' };
+        currentUser = { id: 123456789, first_name: 'Тест', username: 'test_user' };
         showDevBanner();
     }
-    console.log('👤', currentUser.id, currentUser.first_name);
+    console.log('👤 User:', currentUser.id, currentUser.first_name);
     
     // API
     API.init(currentUser);
@@ -176,8 +337,14 @@ async function startApp() {
         currentUserData = await API.request('/api/auth/me');
         console.log('✅ User data:', currentUserData);
     } catch(e) {
-        console.warn('⚠️ Backend error:', e);
-        currentUserData = { telegram_id: currentUser.id, name: currentUser.first_name, karma: 0 };
+        console.warn('⚠️ Backend error:', e.message);
+        currentUserData = { 
+            telegram_id: currentUser.id, 
+            name: currentUser.first_name, 
+            username: currentUser.username,
+            karma: 0,
+            items_count: 0
+        };
     }
     
     // Проверяем права
@@ -192,70 +359,194 @@ async function startApp() {
         document.getElementById('creatorModal').classList.remove('hidden');
     }
     
-    // Обновляем профиль
+    // Обновляем UI
     updateProfile();
     loadFeed();
     
-    console.log('🎉 Готово!');
+    console.log('🎉 Приложение готово!');
 }
 
 async function checkPermissions() {
     var result = { isAdmin: false, isCreator: false, hasCreator: true };
+    
     try {
         var r = await API.request('/api/auth/check-admin');
         result.isAdmin = r.isAdmin || false;
         result.isCreator = r.isCreator || false;
-    } catch(e) {}
+        console.log('✅ check-admin:', r);
+    } catch(e) {
+        console.warn('⚠️ check-admin error:', e.message);
+    }
+    
     try {
         var c = await API.request('/api/auth/check-creator');
         result.hasCreator = c.hasCreator !== false;
-    } catch(e) {}
+        console.log('✅ check-creator:', c);
+    } catch(e) {
+        console.warn('⚠️ check-creator error:', e.message);
+    }
     
     if (result.isAdmin || result.isCreator) {
-        document.getElementById('adminBtn').classList.remove('hidden');
-        document.getElementById('adminPanelBtn').classList.remove('hidden');
+        showAdminButtons();
     }
     
     console.log('🔐 Права:', result);
+    window.userPermissions = result;
     return result;
 }
 
+function showAdminButtons() {
+    var btn1 = document.getElementById('adminBtn');
+    var btn2 = document.getElementById('adminPanelBtn');
+    if (btn1) btn1.classList.remove('hidden');
+    if (btn2) btn2.classList.remove('hidden');
+}
+
+// ============================================
+// UI ФУНКЦИИ
+// ============================================
 function updateProfile() {
     var u = currentUserData || currentUser;
-    document.getElementById('profileName').textContent = u.name || u.first_name || 'Пользователь';
-    document.getElementById('profileKarma').textContent = '⭐ ' + (u.karma || 0) + ' кармы';
+    
+    // Аватар
+    var avatarEl = document.getElementById('profileAvatar');
+    if (avatarEl) {
+        avatarEl.textContent = (u.name || u.first_name || '?').charAt(0).toUpperCase();
+    }
+    
+    // Имя
+    var nameEl = document.getElementById('profileName');
+    if (nameEl) nameEl.textContent = u.name || u.first_name || 'Пользователь';
+    
+    // Username
+    var usernameEl = document.getElementById('profileUsername');
+    if (usernameEl) usernameEl.textContent = u.username ? '@' + u.username : '';
+    
+    // Карма
+    var karmaEl = document.getElementById('profileKarma');
+    if (karmaEl) karmaEl.textContent = u.karma || 0;
+    
+    // Статистика
+    var statPub = document.getElementById('statPublished');
+    if (statPub) statPub.textContent = u.items_count || 0;
 }
 
 async function loadFeed() {
+    var container = document.getElementById('feedItems');
+    
     try {
         var items = await API.request('/api/items?status=active');
-        var container = document.getElementById('feedItems');
+        console.log('✅ Items:', items);
         
-        if (!items || items.length === 0) {
-            container.innerHTML = '<div class="text-center py-12 text-gray-500"><div class="text-5xl mb-4">📦</div><p>Пока нет объявлений</p><p class="text-sm">Станьте первым!</p></div>';
+        if (!items || !Array.isArray(items) || items.length === 0) {
+            container.innerHTML = '<div class="text-center py-12 text-gray-500">' +
+                '<div class="text-5xl mb-4">📦</div>' +
+                '<p class="font-medium">Пока нет объявлений</p>' +
+                '<p class="text-sm mt-2">Станьте первым — добавьте находку!</p>' +
+                '</div>';
             return;
         }
         
         container.innerHTML = items.map(function(item) {
-            return '<div class="bg-white rounded-xl p-4 shadow-sm"><h3 class="font-bold">' + item.title + '</h3><p class="text-gray-500 text-sm">' + (item.description || '') + '</p></div>';
+            var timeAgo = getTimeAgo(item.created_at);
+            var categoryEmoji = getCategoryEmoji(item.category);
+            
+            return '<div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">' +
+                '<div class="flex justify-between items-start">' +
+                '<h3 class="font-bold text-gray-800">' + escapeHtml(item.title) + '</h3>' +
+                '<span class="text-lg">' + categoryEmoji + '</span>' +
+                '</div>' +
+                '<p class="text-gray-500 text-sm mt-1">' + escapeHtml(item.description || 'Без описания') + '</p>' +
+                '<div class="flex justify-between items-center mt-3">' +
+                '<span class="text-xs text-gray-400">' + timeAgo + '</span>' +
+                '<button onclick="markAsTaken(' + item.id + ')" class="text-xs bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-medium">Забрал ✓</button>' +
+                '</div>' +
+                '</div>';
         }).join('');
+        
     } catch(e) {
-        console.warn('⚠️ Feed error:', e);
+        console.warn('⚠️ Feed error:', e.message);
+        container.innerHTML = '<div class="text-center py-12 text-gray-500">' +
+            '<div class="text-5xl mb-4">📦</div>' +
+            '<p>Не удалось загрузить</p>' +
+            '<button onclick="loadFeed()" class="mt-2 text-emerald-600 font-medium">Повторить</button>' +
+            '</div>';
+    }
+}
+
+async function loadMyItems() {
+    var container = document.getElementById('myItems');
+    
+    try {
+        var items = await API.request('/api/items?telegram_id=' + API.userId);
+        
+        if (!items || items.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">Нет активных объявлений</p>';
+            return;
+        }
+        
+        container.innerHTML = items.slice(0, 5).map(function(item) {
+            var status = item.status === 'taken' ? '✓ Забрали' : '● Активно';
+            var statusClass = item.status === 'taken' ? 'text-gray-400' : 'text-emerald-600';
+            return '<div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">' +
+                '<span class="text-sm">' + escapeHtml(item.title) + '</span>' +
+                '<span class="text-xs ' + statusClass + '">' + status + '</span>' +
+                '</div>';
+        }).join('');
+        
+    } catch(e) {
+        console.warn('⚠️ My items error:', e.message);
     }
 }
 
 function showScreen(name) {
-    console.log('📱', name);
-    document.querySelectorAll('[id^="screen-"]').forEach(function(el) {
-        el.classList.add('hidden');
-    });
+    console.log('📱 Screen:', name);
+    
+    // Скрываем все экраны
+    var screens = document.querySelectorAll('.screen');
+    for (var i = 0; i < screens.length; i++) {
+        screens[i].classList.remove('active');
+    }
+    
+    // Показываем нужный
     var target = document.getElementById('screen-' + name);
-    if (target) target.classList.remove('hidden');
+    if (target) {
+        target.classList.add('active');
+    }
+    
+    // Обновляем данные
+    if (name === 'feed') {
+        loadFeed();
+    } else if (name === 'profile') {
+        updateProfile();
+        loadMyItems();
+    }
 }
 
+function selectCategory(btn) {
+    // Сбрасываем все
+    var buttons = document.querySelectorAll('.cat-btn');
+    for (var i = 0; i < buttons.length; i++) {
+        buttons[i].classList.remove('bg-emerald-100', 'text-emerald-700', 'font-medium');
+        buttons[i].classList.add('bg-gray-100', 'text-gray-600');
+    }
+    
+    // Выбираем текущую
+    btn.classList.remove('bg-gray-100', 'text-gray-600');
+    btn.classList.add('bg-emerald-100', 'text-emerald-700', 'font-medium');
+    
+    selectedCategory = btn.getAttribute('data-cat');
+}
+
+// ============================================
+// ДЕЙСТВИЯ
+// ============================================
 async function publishItem() {
-    var title = document.getElementById('itemTitle').value.trim();
-    var desc = document.getElementById('itemDesc').value.trim();
+    var titleEl = document.getElementById('itemTitle');
+    var descEl = document.getElementById('itemDesc');
+    
+    var title = titleEl.value.trim();
+    var desc = descEl.value.trim();
     
     if (!title) {
         alert('Введите название');
@@ -263,51 +554,141 @@ async function publishItem() {
     }
     
     try {
-        await API.request('/api/items', {
+        var result = await API.request('/api/items', {
             method: 'POST',
-            body: JSON.stringify({ title: title, description: desc, category: 'other' })
+            body: JSON.stringify({ 
+                title: title, 
+                description: desc, 
+                category: selectedCategory
+            })
         });
-        alert('✅ Опубликовано!');
-        document.getElementById('itemTitle').value = '';
-        document.getElementById('itemDesc').value = '';
-        showScreen('feed');
+        
+        console.log('✅ Создано:', result);
+        
+        // Очищаем форму
+        titleEl.value = '';
+        descEl.value = '';
+        
+        // Показываем успех
+        document.getElementById('successModal').classList.remove('hidden');
+        
+        // Обновляем карму
+        if (currentUserData) {
+            currentUserData.karma = (currentUserData.karma || 0) + 10;
+            currentUserData.items_count = (currentUserData.items_count || 0) + 1;
+        }
+        
+    } catch(e) {
+        console.error('❌ Publish error:', e);
+        alert('Ошибка: ' + e.message);
+    }
+}
+
+async function markAsTaken(itemId) {
+    if (!confirm('Вы забрали эту вещь?')) return;
+    
+    try {
+        await API.request('/api/items/' + itemId + '/taken', { method: 'POST' });
+        alert('✅ Отмечено как забранное!');
         loadFeed();
     } catch(e) {
+        console.error('❌ Mark taken error:', e);
         alert('Ошибка: ' + e.message);
     }
 }
 
 async function setupCreator() {
-    var token = document.getElementById('botToken').value.trim();
-    if (!token) { alert('Введите токен'); return; }
+    var tokenEl = document.getElementById('botToken');
+    var token = tokenEl.value.trim();
+    
+    if (!token) { 
+        alert('Введите токен'); 
+        return; 
+    }
+    
+    if (!/^\d+:[A-Za-z0-9_-]+$/.test(token)) {
+        alert('Неверный формат токена');
+        return;
+    }
     
     try {
-        await API.request('/api/auth/setup-creator', {
+        var result = await API.request('/api/auth/setup-creator', {
             method: 'POST',
             body: JSON.stringify({ botToken: token })
         });
+        
+        console.log('✅ Creator setup:', result);
         closeCreatorModal();
-        alert('🎉 Вы создатель!');
-        document.getElementById('adminBtn').classList.remove('hidden');
-        document.getElementById('adminPanelBtn').classList.remove('hidden');
+        alert('🎉 Вы стали создателем системы!');
+        showAdminButtons();
+        
     } catch(e) {
+        console.error('❌ Setup error:', e);
         alert('Ошибка: ' + e.message);
     }
 }
 
+// ============================================
+// МОДАЛКИ
+// ============================================
 function closeCreatorModal() {
     document.getElementById('creatorModal').classList.add('hidden');
+}
+
+function closeSuccessModal() {
+    document.getElementById('successModal').classList.add('hidden');
+    showScreen('feed');
 }
 
 function openAdminPanel() {
     window.location.href = 'admin.html';
 }
 
+// ============================================
+// УТИЛИТЫ
+// ============================================
 function showDevBanner() {
     var d = document.createElement('div');
-    d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#f59e0b;color:white;padding:8px;text-align:center;z-index:9999;font-size:13px;';
-    d.textContent = '⚠️ Режим разработки';
+    d.id = 'devBanner';
+    d.style.cssText = 'position:fixed;top:0;left:0;right:0;background:linear-gradient(90deg,#f59e0b,#d97706);color:white;padding:8px 16px;text-align:center;z-index:9999;font-size:13px;';
+    d.innerHTML = '⚠️ Режим разработки <button onclick="this.parentElement.remove()" style="margin-left:10px;background:rgba(0,0,0,0.2);border:none;color:white;padding:2px 8px;border-radius:4px;cursor:pointer;">✕</button>';
     document.body.prepend(d);
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    var div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function getTimeAgo(dateString) {
+    if (!dateString) return '';
+    try {
+        var date = new Date(dateString);
+        var now = new Date();
+        var diff = Math.floor((now - date) / 1000 / 60);
+        
+        if (diff < 1) return 'только что';
+        if (diff < 60) return diff + ' мин назад';
+        if (diff < 1440) return Math.floor(diff / 60) + ' ч назад';
+        return Math.floor(diff / 1440) + ' дн назад';
+    } catch(e) {
+        return '';
+    }
+}
+
+function getCategoryEmoji(category) {
+    var emojis = {
+        furniture: '🛋️',
+        electronics: '📺',
+        books: '📚',
+        clothing: '👕',
+        construction: '🧱',
+        plants: '🪴',
+        other: '📦'
+    };
+    return emojis[category] || '📦';
 }
 </script>
 
