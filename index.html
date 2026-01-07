@@ -850,11 +850,16 @@ function closeCreatorModal() { document.getElementById('creatorModal').classList
 function closeMapModal() { document.getElementById('mapProviderModal').classList.add('hidden'); }
 function closeSuccessModal() { document.getElementById('successModal').classList.add('hidden'); showScreen('feed'); }
 function openAdminPanel() { 
-    // Сохраняем данные пользователя для админ-панели
+    // Передаём данные пользователя через URL (безопаснее чем sessionStorage в WebView)
     if (currentUser) {
-        sessionStorage.setItem('pomoechka_telegram_user', JSON.stringify(currentUser));
+        var params = new URLSearchParams();
+        params.set('uid', currentUser.id);
+        params.set('name', currentUser.first_name || '');
+        params.set('uname', currentUser.username || '');
+        window.location.href = 'admin.html?' + params.toString();
+    } else {
+        window.location.href = 'admin.html';
     }
-    window.location.href = 'admin.html'; 
 }
 
 // ============================================

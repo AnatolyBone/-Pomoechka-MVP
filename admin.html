@@ -443,7 +443,23 @@
                 return window.Telegram.WebApp.initDataUnsafe.user;
             }
             
-            // 2. Пробуем sessionStorage (передано из index.html)
+            // 2. Пробуем URL параметры (передано из index.html)
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const uid = params.get('uid');
+                if (uid) {
+                    console.log('🔗 User from URL params:', uid);
+                    return {
+                        id: uid,
+                        first_name: params.get('name') || 'Admin',
+                        username: params.get('uname') || ''
+                    };
+                }
+            } catch (e) {
+                console.error('URL params error:', e);
+            }
+            
+            // 3. Пробуем sessionStorage (резервный вариант)
             try {
                 const stored = sessionStorage.getItem('pomoechka_telegram_user');
                 if (stored) {
@@ -452,7 +468,7 @@
                 }
             } catch (e) {}
             
-            // 3. Для разработки
+            // 4. Для разработки
             if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
                 console.log('🔧 Dev mode user');
                 return { id: 'dev', first_name: 'Dev' };
@@ -468,19 +484,26 @@
             const authSetup = document.getElementById('authSetup');
             const authNotTelegram = document.getElementById('authNotTelegram');
             
+            console.log('🚀 Admin checkAuth started');
+            console.log('📍 URL:', window.location.href);
+            console.log('📍 Search:', window.location.search);
+            
             // Инициализируем Telegram WebApp
             if (window.Telegram?.WebApp) {
                 Telegram.WebApp.ready();
                 Telegram.WebApp.expand();
+                console.log('📱 Telegram WebApp initialized');
             }
             
             // Получаем пользователя
             const user = getTelegramUser();
             const userId = user?.id;
             
-            console.log('🔍 Admin auth check, user:', user);
+            console.log('👤 User:', user);
+            console.log('🆔 UserId:', userId);
             
             if (!user || !userId) {
+                console.log('❌ No user found');
                 authStatus.classList.add('hidden');
                 authNotTelegram.classList.remove('hidden');
                 return;
@@ -490,25 +513,31 @@
             window._adminUserId = String(userId);
             
             console.log('🔍 Checking auth for user:', userId);
+            console.log('🌐 API URL:', CONFIG.API_URL);
             
             // Проверяем через API с бэкенда
             try {
                 // Сначала проверяем, есть ли создатель в системе
+                console.log('📤 Fetching check-creator...');
                 const creatorCheck = await fetch(`${CONFIG.API_URL}/api/auth/check-creator`, {
                     headers: { 'X-Telegram-ID': String(userId) }
                 });
+                console.log('📥 Creator response status:', creatorCheck.status);
                 const creatorData = await creatorCheck.json();
                 console.log('🔍 Creator check:', creatorData);
                 
                 // Проверяем права текущего пользователя
+                console.log('📤 Fetching check-admin...');
                 const adminCheck = await fetch(`${CONFIG.API_URL}/api/auth/check-admin`, {
                     headers: { 'X-Telegram-ID': String(userId) }
                 });
+                console.log('📥 Admin response status:', adminCheck.status);
                 const adminData = await adminCheck.json();
                 console.log('🔐 Admin check:', adminData);
                 
                 // Если пользователь - админ или создатель, показываем панель
                 if (adminData.isAdmin || adminData.isCreator) {
+                    console.log('✅ User is admin/creator, showing panel');
                     showAdminPanel(user, adminData.isCreator);
                     return;
                 }
@@ -523,15 +552,17 @@
                 }
                 
                 // Пользователь не админ
+                console.log('⛔ User is not admin');
                 authStatus.classList.add('hidden');
                 authError.classList.remove('hidden');
                 
             } catch (error) {
-                console.error('Auth check error:', error);
+                console.error('❌ Auth check error:', error);
+                console.error('Error details:', error.message, error.stack);
                 // Если бэкенд недоступен, показываем ошибку
                 authStatus.classList.add('hidden');
                 authError.classList.remove('hidden');
-                document.querySelector('#authError p:last-child').textContent = 'Ошибка подключения к серверу';
+                document.querySelector('#authError p:last-child').textContent = 'Ошибка: ' + error.message;
             }
         }
         
