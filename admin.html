@@ -409,9 +409,20 @@
 
     <script src="js/config.js"></script>
     <script>
-        console.log('✅ Admin CONFIG:', CONFIG.API_URL);
+        // Убеждаемся что API_URL установлен
+        if (!CONFIG.API_URL) {
+            CONFIG.API_URL = 'https://pomoechka-mvp.onrender.com';
+        }
+        console.log('✅ Admin CONFIG.API_URL:', CONFIG.API_URL);
+        
         // Переопределяем hasBackend для корректной работы
         window.hasBackend = () => !!CONFIG.API_URL;
+        
+        // Тестовый запрос для проверки CORS
+        fetch(CONFIG.API_URL + '/health')
+            .then(r => r.json())
+            .then(d => console.log('✅ Health check OK:', d))
+            .catch(e => console.error('❌ Health check failed:', e));
     </script>
     <script src="js/api.js"></script>
     <script>
@@ -517,21 +528,25 @@
             
             // Проверяем через API с бэкенда
             try {
-                // Сначала проверяем, есть ли создатель в системе
-                console.log('📤 Fetching check-creator...');
-                const creatorCheck = await fetch(`${CONFIG.API_URL}/api/auth/check-creator`, {
-                    headers: { 'X-Telegram-ID': String(userId) }
-                });
-                console.log('📥 Creator response status:', creatorCheck.status);
-                const creatorData = await creatorCheck.json();
-                console.log('🔍 Creator check:', creatorData);
+                // Сначала проверим доступность API
+                console.log('🔌 Testing API connection to:', CONFIG.API_URL);
                 
                 // Проверяем права текущего пользователя
                 console.log('📤 Fetching check-admin...');
                 const adminCheck = await fetch(`${CONFIG.API_URL}/api/auth/check-admin`, {
-                    headers: { 'X-Telegram-ID': String(userId) }
+                    method: 'GET',
+                    headers: { 
+                        'X-Telegram-ID': String(userId),
+                        'Accept': 'application/json'
+                    },
+                    mode: 'cors'
                 });
                 console.log('📥 Admin response status:', adminCheck.status);
+                
+                if (!adminCheck.ok) {
+                    throw new Error(`HTTP ${adminCheck.status}`);
+                }
+                
                 const adminData = await adminCheck.json();
                 console.log('🔐 Admin check:', adminData);
                 
@@ -541,6 +556,19 @@
                     showAdminPanel(user, adminData.isCreator);
                     return;
                 }
+                
+                // Проверяем, есть ли создатель в системе
+                console.log('📤 Fetching check-creator...');
+                const creatorCheck = await fetch(`${CONFIG.API_URL}/api/auth/check-creator`, {
+                    method: 'GET',
+                    headers: { 
+                        'X-Telegram-ID': String(userId),
+                        'Accept': 'application/json'
+                    },
+                    mode: 'cors'
+                });
+                const creatorData = await creatorCheck.json();
+                console.log('🔍 Creator check:', creatorData);
                 
                 // Если создателя нет в системе, предлагаем настройку
                 if (creatorData.hasCreator === false) {
@@ -558,11 +586,42 @@
                 
             } catch (error) {
                 console.error('❌ Auth check error:', error);
-                console.error('Error details:', error.message, error.stack);
-                // Если бэкенд недоступен, показываем ошибку
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                
+                // Если fetch не работает, попробуем XMLHttpRequest как fallback
+                console.log('🔄 Trying XMLHttpRequest fallback...');
+                try {
+                    const result = await new Promise((resolve, reject) => {
+                        const xhr = new XMLHttpRequest();
+                        xhr.open('GET', `${CONFIG.API_URL}/api/auth/check-admin`);
+                        xhr.setRequestHeader('X-Telegram-ID', String(userId));
+                        xhr.setRequestHeader('Accept', 'application/json');
+                        xhr.onload = () => {
+                            if (xhr.status >= 200 && xhr.status < 300) {
+                                resolve(JSON.parse(xhr.responseText));
+                            } else {
+                                reject(new Error(`XHR HTTP ${xhr.status}`));
+                            }
+                        };
+                        xhr.onerror = () => reject(new Error('XHR Network Error'));
+                        xhr.send();
+                    });
+                    
+                    console.log('✅ XHR result:', result);
+                    if (result.isAdmin || result.isCreator) {
+                        showAdminPanel(user, result.isCreator);
+                        return;
+                    }
+                } catch (xhrError) {
+                    console.error('❌ XHR also failed:', xhrError);
+                }
+                
+                // Если всё не работает, показываем ошибку с деталями
                 authStatus.classList.add('hidden');
                 authError.classList.remove('hidden');
-                document.querySelector('#authError p:last-child').textContent = 'Ошибка: ' + error.message;
+                document.querySelector('#authError p:last-child').textContent = 
+                    'Ошибка сети. Проверьте подключение.';
             }
         }
         
