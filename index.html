@@ -12,25 +12,11 @@
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
         .screen { display: none; }
         .screen.active { display: flex; flex-direction: column; }
-        .map-marker { 
-            position: absolute; 
-            transform: translate(-50%, -100%);
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
+        .map-marker { position: absolute; transform: translate(-50%, -100%); cursor: pointer; transition: transform 0.2s; }
         .map-marker:hover { transform: translate(-50%, -100%) scale(1.2); }
-        .pulse-ring {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
-            background: rgba(16, 185, 129, 0.3);
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(3); opacity: 0; }
-        }
+        .pulse-ring { position: absolute; width: 100%; height: 100%; border-radius: 50%; background: rgba(16, 185, 129, 0.3); animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(3); opacity: 0; } }
+        .photo-preview { width: 100%; height: 200px; object-fit: cover; border-radius: 12px; }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -43,7 +29,6 @@
         <p class="text-gray-500 mb-4">Загрузка...</p>
         <div class="animate-pulse flex items-center justify-center gap-2 text-gray-400">
             <div class="w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full animate-spin"></div>
-            Подключение...
         </div>
     </div>
 </div>
@@ -53,7 +38,6 @@
     
     <!-- Map Screen -->
     <div id="screen-map" class="screen active min-h-screen bg-gray-50">
-        <!-- Header -->
         <div class="bg-white px-4 py-3 border-b border-gray-200 z-10">
             <div class="flex justify-between items-center mb-2">
                 <div>
@@ -62,72 +46,54 @@
                 </div>
                 <div class="flex gap-2">
                     <button id="adminBtnMap" class="hidden w-10 h-10 rounded-full bg-purple-500 text-white flex items-center justify-center" onclick="openAdminPanel()">⚙️</button>
-                    <button class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold" onclick="showScreen('profile')">👤</button>
+                    <button id="profileBtnMap" class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold flex items-center justify-center" onclick="showScreen('profile')">?</button>
                 </div>
             </div>
-            <!-- Radius selector -->
             <div class="flex gap-2">
-                <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-medium" onclick="setRadius(0.5)">500м</button>
-                <button class="radius-btn px-3 py-1.5 bg-emerald-500 text-white rounded-full text-xs font-medium active" onclick="setRadius(2)">2км</button>
-                <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-medium" onclick="setRadius(5)">5км</button>
-                <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-medium" onclick="setRadius(10)">10км</button>
+                <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-medium" onclick="setRadius(0.5, this)">500м</button>
+                <button class="radius-btn px-3 py-1.5 bg-emerald-500 text-white rounded-full text-xs font-medium" onclick="setRadius(2, this)">2км</button>
+                <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-medium" onclick="setRadius(5, this)">5км</button>
+                <button class="radius-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs font-medium" onclick="setRadius(10, this)">10км</button>
             </div>
         </div>
         
-        <!-- Map Area -->
         <div class="flex-1 relative bg-gradient-to-br from-green-100 via-blue-50 to-indigo-100 overflow-hidden" id="mapArea">
-            <!-- Grid pattern for visual effect -->
             <div class="absolute inset-0 opacity-20" style="background-image: repeating-linear-gradient(0deg, #e5e7eb 0px, #e5e7eb 1px, transparent 1px, transparent 50px), repeating-linear-gradient(90deg, #e5e7eb 0px, #e5e7eb 1px, transparent 1px, transparent 50px);"></div>
-            
-            <!-- Map markers container -->
             <div id="mapMarkers" class="absolute inset-0"></div>
-            
-            <!-- Current location indicator -->
             <div id="currentLocation" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
                 <div class="relative">
                     <div class="pulse-ring"></div>
                     <div class="w-4 h-4 bg-blue-500 rounded-full border-3 border-white shadow-lg relative z-10"></div>
                 </div>
             </div>
-            
-            <!-- Empty state -->
             <div id="mapEmpty" class="absolute inset-0 flex items-center justify-center">
                 <div class="text-center bg-white/80 backdrop-blur rounded-2xl p-6 mx-4 shadow-lg">
                     <div class="text-5xl mb-3">📍</div>
                     <p class="font-medium text-gray-700">Нет находок поблизости</p>
-                    <p class="text-sm text-gray-500 mt-1">Станьте первым — добавьте находку!</p>
+                    <p class="text-sm text-gray-500 mt-1">Станьте первым!</p>
                 </div>
             </div>
         </div>
         
-        <!-- Bottom info panel -->
         <div class="bg-white rounded-t-3xl shadow-lg p-4 pb-20 -mt-4 relative z-10">
             <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
-            <p id="mapItemsCount" class="text-sm text-center text-gray-600">
-                Загрузка объявлений...
-            </p>
+            <p id="mapItemsCount" class="text-sm text-center text-gray-600">Загрузка...</p>
         </div>
         
-        <!-- Add button -->
         <button onclick="showScreen('add')" class="fixed bottom-24 right-4 w-14 h-14 bg-emerald-500 hover:bg-emerald-600 rounded-full text-white text-3xl shadow-lg z-20">+</button>
         
-        <!-- Bottom Navigation -->
         <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 flex justify-around z-10">
             <button onclick="showScreen('map')" class="flex flex-col items-center py-1 px-4 text-emerald-600">
-                <span class="text-xl">🗺️</span>
-                <span class="text-xs font-semibold">Карта</span>
+                <span class="text-xl">🗺️</span><span class="text-xs font-semibold">Карта</span>
             </button>
             <button onclick="showScreen('feed')" class="flex flex-col items-center py-1 px-4 text-gray-400">
-                <span class="text-xl">📋</span>
-                <span class="text-xs">Лента</span>
+                <span class="text-xl">📋</span><span class="text-xs">Лента</span>
             </button>
             <button onclick="showScreen('add')" class="flex flex-col items-center py-1 px-4 text-gray-400">
-                <span class="text-xl">➕</span>
-                <span class="text-xs">Добавить</span>
+                <span class="text-xl">➕</span><span class="text-xs">Добавить</span>
             </button>
             <button onclick="showScreen('profile')" class="flex flex-col items-center py-1 px-4 text-gray-400">
-                <span class="text-xl">👤</span>
-                <span class="text-xs">Профиль</span>
+                <span class="text-xl">👤</span><span class="text-xs">Профиль</span>
             </button>
         </div>
     </div>
@@ -142,44 +108,34 @@
                 </div>
                 <div class="flex gap-2">
                     <button id="adminBtnFeed" class="hidden w-10 h-10 rounded-full bg-purple-500 text-white" onclick="openAdminPanel()">⚙️</button>
-                    <button class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold" onclick="showScreen('profile')">👤</button>
+                    <button id="profileBtnFeed" class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-white font-bold" onclick="showScreen('profile')">?</button>
                 </div>
             </div>
-            <!-- Categories -->
             <div class="flex gap-2 overflow-x-auto pb-1">
-                <button class="filter-btn px-3 py-1.5 bg-emerald-500 text-white rounded-full text-xs font-medium whitespace-nowrap" onclick="filterByCategory('all')">🔥 Все</button>
-                <button class="filter-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs whitespace-nowrap" onclick="filterByCategory('furniture')">🛋️ Мебель</button>
-                <button class="filter-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs whitespace-nowrap" onclick="filterByCategory('electronics')">📺 Техника</button>
-                <button class="filter-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs whitespace-nowrap" onclick="filterByCategory('books')">📚 Книги</button>
-                <button class="filter-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs whitespace-nowrap" onclick="filterByCategory('other')">📦 Другое</button>
+                <button class="filter-btn px-3 py-1.5 bg-emerald-500 text-white rounded-full text-xs font-medium whitespace-nowrap" onclick="filterByCategory('all', this)">🔥 Все</button>
+                <button class="filter-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs whitespace-nowrap" onclick="filterByCategory('furniture', this)">🛋️ Мебель</button>
+                <button class="filter-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs whitespace-nowrap" onclick="filterByCategory('electronics', this)">📺 Техника</button>
+                <button class="filter-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs whitespace-nowrap" onclick="filterByCategory('books', this)">📚 Книги</button>
+                <button class="filter-btn px-3 py-1.5 bg-gray-100 rounded-full text-xs whitespace-nowrap" onclick="filterByCategory('other', this)">📦 Другое</button>
             </div>
         </div>
         
-        <div id="feedItems" class="p-4 space-y-4">
-            <div class="text-center py-12 text-gray-500">
-                <div class="text-5xl mb-4">⏳</div>
-                <p>Загрузка...</p>
-            </div>
-        </div>
+        <div id="feedItems" class="p-4 space-y-4"></div>
         
         <button onclick="showScreen('add')" class="fixed bottom-24 right-4 w-14 h-14 bg-emerald-500 hover:bg-emerald-600 rounded-full text-white text-3xl shadow-lg z-20">+</button>
         
         <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 flex justify-around z-10">
             <button onclick="showScreen('map')" class="flex flex-col items-center py-1 px-4 text-gray-400">
-                <span class="text-xl">🗺️</span>
-                <span class="text-xs">Карта</span>
+                <span class="text-xl">🗺️</span><span class="text-xs">Карта</span>
             </button>
             <button onclick="showScreen('feed')" class="flex flex-col items-center py-1 px-4 text-emerald-600">
-                <span class="text-xl">📋</span>
-                <span class="text-xs font-semibold">Лента</span>
+                <span class="text-xl">📋</span><span class="text-xs font-semibold">Лента</span>
             </button>
             <button onclick="showScreen('add')" class="flex flex-col items-center py-1 px-4 text-gray-400">
-                <span class="text-xl">➕</span>
-                <span class="text-xs">Добавить</span>
+                <span class="text-xl">➕</span><span class="text-xs">Добавить</span>
             </button>
             <button onclick="showScreen('profile')" class="flex flex-col items-center py-1 px-4 text-gray-400">
-                <span class="text-xl">👤</span>
-                <span class="text-xs">Профиль</span>
+                <span class="text-xl">👤</span><span class="text-xs">Профиль</span>
             </button>
         </div>
     </div>
@@ -198,6 +154,21 @@
                 <p class="text-sm text-amber-800">⚠️ <strong>Важно:</strong> Публикуйте только то, что уже лежит у контейнеров!</p>
             </div>
             
+            <!-- Photo Upload -->
+            <div class="bg-white rounded-xl p-4 shadow-sm">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">📷 Фото находки</label>
+                <div id="photoPreviewContainer" class="hidden mb-3">
+                    <img id="photoPreview" class="photo-preview" src="" alt="Preview">
+                    <button onclick="removePhoto()" class="mt-2 text-red-500 text-sm">✕ Удалить фото</button>
+                </div>
+                <label class="block w-full p-8 border-2 border-dashed border-gray-300 rounded-xl text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50 transition" id="photoUploadLabel">
+                    <input type="file" id="photoInput" accept="image/*" capture="environment" class="hidden" onchange="handlePhotoSelect(this)">
+                    <div class="text-4xl mb-2">📸</div>
+                    <p class="text-gray-600 font-medium">Нажмите, чтобы сфотографировать</p>
+                    <p class="text-gray-400 text-xs mt-1">или выбрать из галереи</p>
+                </label>
+            </div>
+            
             <div class="bg-white rounded-xl p-4 shadow-sm">
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Название *</label>
                 <input id="itemTitle" type="text" placeholder="Что это? (диван, книги, стулья...)" class="w-full p-3 bg-gray-50 rounded-lg border border-gray-200 focus:border-emerald-500 outline-none">
@@ -205,12 +176,12 @@
             
             <div class="bg-white rounded-xl p-4 shadow-sm">
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Описание</label>
-                <textarea id="itemDesc" placeholder="Состояние, размер, где лежит..." class="w-full p-3 bg-gray-50 rounded-lg border border-gray-200 focus:border-emerald-500 outline-none h-24 resize-none"></textarea>
+                <textarea id="itemDesc" placeholder="Состояние, размер, особенности..." class="w-full p-3 bg-gray-50 rounded-lg border border-gray-200 focus:border-emerald-500 outline-none h-24 resize-none"></textarea>
             </div>
             
             <div class="bg-white rounded-xl p-4 shadow-sm">
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Категория</label>
-                <div class="flex flex-wrap gap-2" id="categoryPicker">
+                <div class="flex flex-wrap gap-2">
                     <button type="button" class="cat-btn px-3 py-2 bg-emerald-100 text-emerald-700 rounded-full text-sm font-medium" data-cat="furniture" onclick="selectCategory(this)">🛋️ Мебель</button>
                     <button type="button" class="cat-btn px-3 py-2 bg-gray-100 text-gray-600 rounded-full text-sm" data-cat="electronics" onclick="selectCategory(this)">📺 Техника</button>
                     <button type="button" class="cat-btn px-3 py-2 bg-gray-100 text-gray-600 rounded-full text-sm" data-cat="books" onclick="selectCategory(this)">📚 Книги</button>
@@ -219,7 +190,6 @@
                 </div>
             </div>
             
-            <!-- Location -->
             <div class="bg-white rounded-xl p-4 shadow-sm">
                 <label class="block text-sm font-semibold text-gray-700 mb-2">Местоположение</label>
                 <button onclick="getLocation()" id="locationBtn" class="w-full flex items-center gap-3 p-3 bg-emerald-50 rounded-lg text-emerald-700 font-medium">
@@ -233,7 +203,7 @@
                 <p class="text-sm text-blue-800">⏰ Объявление будет активно <strong>6 часов</strong>. Вы получите <strong>+10 кармы</strong>!</p>
             </div>
             
-            <button onclick="publishItem()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-xl text-lg shadow-md transition">Опубликовать 🚀</button>
+            <button onclick="publishItem()" id="publishBtn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-xl text-lg shadow-md transition">Опубликовать 🚀</button>
         </div>
     </div>
     
@@ -245,7 +215,8 @@
                 <div id="profileAvatar" class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold">?</div>
                 <div>
                     <h1 id="profileName" class="text-xl font-bold">Загрузка...</h1>
-                    <p id="profileUsername" class="text-emerald-100 text-sm">@username</p>
+                    <p id="profileUsername" class="text-emerald-100 text-sm"></p>
+                    <p id="profileRole" class="text-emerald-200 text-xs mt-1">👤 Пользователь</p>
                 </div>
             </div>
             <div class="mt-4 flex items-center gap-2">
@@ -278,7 +249,7 @@
             <div class="bg-white rounded-xl p-4 shadow-sm">
                 <h3 class="font-bold text-gray-800 mb-3">📦 Мои объявления</h3>
                 <div id="myItems" class="space-y-2">
-                    <p class="text-gray-500 text-sm text-center py-4">Нет активных объявлений</p>
+                    <p class="text-gray-500 text-sm text-center py-4">Загрузка...</p>
                 </div>
             </div>
         </div>
@@ -290,10 +261,10 @@
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
         <div class="text-center mb-6">
             <div class="text-5xl mb-3">👑</div>
-            <h2 class="text-xl font-bold text-gray-800">Добро пожаловать!</h2>
-            <p class="text-gray-500 text-sm mt-1">Вы первый пользователь. Настройте систему.</p>
+            <h2 class="text-xl font-bold text-gray-800">Настройка системы</h2>
+            <p class="text-gray-500 text-sm mt-1">Введите токен бота для завершения настройки</p>
         </div>
-        <input id="botToken" type="text" placeholder="Токен бота 123456789:ABCdef..." class="w-full p-3 border border-gray-300 rounded-lg mb-4">
+        <input id="botToken" type="text" placeholder="123456789:ABCdef..." class="w-full p-3 border border-gray-300 rounded-lg mb-4">
         <button onclick="setupCreator()" class="w-full bg-emerald-500 text-white py-3 rounded-lg font-semibold">✅ Подтвердить</button>
         <button onclick="closeCreatorModal()" class="w-full py-2 text-gray-500 mt-2">Пропустить</button>
     </div>
@@ -304,15 +275,9 @@
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
         <h2 class="text-xl font-bold text-gray-800 mb-4 text-center">Открыть в картах</h2>
         <div class="space-y-3">
-            <button onclick="openMap('yandex')" class="w-full p-4 border-2 rounded-xl text-left hover:border-emerald-500 hover:bg-emerald-50">
-                <span class="text-2xl mr-2">🗺️</span> Яндекс.Карты
-            </button>
-            <button onclick="openMap('2gis')" class="w-full p-4 border-2 rounded-xl text-left hover:border-emerald-500 hover:bg-emerald-50">
-                <span class="text-2xl mr-2">🗺️</span> 2ГИС
-            </button>
-            <button onclick="openMap('google')" class="w-full p-4 border-2 rounded-xl text-left hover:border-emerald-500 hover:bg-emerald-50">
-                <span class="text-2xl mr-2">🗺️</span> Google Maps
-            </button>
+            <button onclick="openMap('yandex')" class="w-full p-4 border-2 rounded-xl text-left hover:border-emerald-500 hover:bg-emerald-50">🗺️ Яндекс.Карты</button>
+            <button onclick="openMap('2gis')" class="w-full p-4 border-2 rounded-xl text-left hover:border-emerald-500 hover:bg-emerald-50">🗺️ 2ГИС</button>
+            <button onclick="openMap('google')" class="w-full p-4 border-2 rounded-xl text-left hover:border-emerald-500 hover:bg-emerald-50">🗺️ Google Maps</button>
         </div>
         <button onclick="closeMapModal()" class="w-full py-2 text-gray-500 mt-4">Отмена</button>
     </div>
@@ -332,11 +297,7 @@
 // ============================================
 // КОНФИГУРАЦИЯ
 // ============================================
-var CONFIG = {
-    API_URL: 'https://pomoechka-mvp.onrender.com',
-    APP_NAME: 'Помоечка кормит'
-};
-
+var CONFIG = { API_URL: 'https://pomoechka-mvp.onrender.com' };
 console.log('✅ CONFIG:', CONFIG.API_URL);
 
 // ============================================
@@ -346,30 +307,22 @@ var API = {
     userId: null,
     
     init: function(user) {
-        if (user) {
-            this.userId = String(user.id);
-        }
+        if (user) this.userId = String(user.id);
         console.log('✅ API init:', this.userId);
     },
     
     request: function(endpoint, options) {
         var self = this;
         options = options || {};
-        var url = CONFIG.API_URL + endpoint;
-        
         var headers = { 'Content-Type': 'application/json' };
         if (self.userId) headers['X-Telegram-ID'] = self.userId;
         
-        var fetchOptions = {
-            method: options.method || 'GET',
-            headers: headers
-        };
-        
+        var fetchOptions = { method: options.method || 'GET', headers: headers };
         if (options.body) fetchOptions.body = options.body;
         
         console.log('📤', fetchOptions.method, endpoint);
         
-        return fetch(url, fetchOptions)
+        return fetch(CONFIG.API_URL + endpoint, fetchOptions)
             .then(function(r) {
                 return r.json().then(function(data) {
                     if (!r.ok) throw new Error(data.error || 'HTTP ' + r.status);
@@ -389,6 +342,7 @@ var currentRadius = 2;
 var userLocation = null;
 var allItems = [];
 var selectedMapItem = null;
+var selectedPhotoBase64 = null;
 
 // ============================================
 // ЗАПУСК
@@ -406,34 +360,55 @@ async function startApp() {
         try { tg.ready(); tg.expand(); } catch(e) {}
     }
     
+    // Получаем пользователя из Telegram
     currentUser = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
     if (!currentUser) {
-        currentUser = { id: 123456789, first_name: 'Тест', username: 'test' };
+        currentUser = { id: 123456789, first_name: 'Тест', last_name: '', username: 'test' };
         showDevBanner();
     }
     console.log('👤', currentUser.id, currentUser.first_name);
     
     API.init(currentUser);
     
+    // Получаем/создаём пользователя на бэкенде с РЕАЛЬНЫМ именем
     try {
-        currentUserData = await API.request('/api/auth/me');
+        currentUserData = await API.request('/api/auth/me', {
+            method: 'POST',
+            body: JSON.stringify({
+                name: (currentUser.first_name + ' ' + (currentUser.last_name || '')).trim(),
+                username: currentUser.username
+            })
+        });
         console.log('✅ User:', currentUserData);
     } catch(e) {
-        currentUserData = { telegram_id: currentUser.id, name: currentUser.first_name, karma: 0 };
+        // Fallback на GET
+        try {
+            currentUserData = await API.request('/api/auth/me');
+        } catch(e2) {
+            currentUserData = { 
+                telegram_id: currentUser.id, 
+                name: currentUser.first_name, 
+                username: currentUser.username,
+                karma: 0 
+            };
+        }
     }
     
+    // Проверяем права
     var perms = await checkPermissions();
     
+    // Показываем приложение
     document.getElementById('authScreen').style.display = 'none';
     document.getElementById('mainApp').style.display = 'block';
     
-    if (!perms.hasCreator) {
+    // Модалка создателя - ТОЛЬКО если hasCreator === false (не просто falsy)
+    console.log('🔍 hasCreator:', perms.hasCreator);
+    if (perms.hasCreator === false) {
+        console.log('👑 Показываем модалку создателя');
         document.getElementById('creatorModal').classList.remove('hidden');
     }
     
-    // Получаем геолокацию
     getLocation();
-    
     updateProfile();
     loadItems();
     
@@ -445,20 +420,29 @@ async function checkPermissions() {
     
     try {
         var r = await API.request('/api/auth/check-admin');
-        result.isAdmin = r.isAdmin || false;
-        result.isCreator = r.isCreator || false;
-    } catch(e) {}
+        result.isAdmin = r.isAdmin === true;
+        result.isCreator = r.isCreator === true;
+        console.log('✅ check-admin:', r);
+    } catch(e) {
+        console.warn('⚠️ check-admin:', e.message);
+    }
     
     try {
         var c = await API.request('/api/auth/check-creator');
+        // Явно проверяем на false
         result.hasCreator = c.hasCreator !== false;
-    } catch(e) {}
+        console.log('✅ check-creator:', c);
+    } catch(e) {
+        console.warn('⚠️ check-creator:', e.message);
+        result.hasCreator = true; // По умолчанию считаем что есть
+    }
     
     if (result.isAdmin || result.isCreator) {
         showAdminButtons();
     }
     
     console.log('🔐 Права:', result);
+    window.userPermissions = result;
     return result;
 }
 
@@ -470,19 +454,145 @@ function showAdminButtons() {
 }
 
 // ============================================
+// ФОТО
+// ============================================
+function handlePhotoSelect(input) {
+    var file = input.files[0];
+    if (!file) return;
+    
+    // Проверяем размер (макс 10MB до сжатия)
+    if (file.size > 10 * 1024 * 1024) {
+        alert('Фото слишком большое. Максимум 10MB');
+        return;
+    }
+    
+    // Сжимаем изображение
+    compressImage(file, 800, 0.7, function(compressedBase64) {
+        selectedPhotoBase64 = compressedBase64;
+        document.getElementById('photoPreview').src = selectedPhotoBase64;
+        document.getElementById('photoPreviewContainer').classList.remove('hidden');
+        document.getElementById('photoUploadLabel').classList.add('hidden');
+        console.log('📷 Фото загружено, размер:', Math.round(selectedPhotoBase64.length / 1024), 'KB');
+    });
+}
+
+// Сжатие изображения до указанного размера
+function compressImage(file, maxWidth, quality, callback) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var img = new Image();
+        img.onload = function() {
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
+            
+            // Вычисляем размеры
+            var width = img.width;
+            var height = img.height;
+            
+            if (width > maxWidth) {
+                height = Math.round(height * maxWidth / width);
+                width = maxWidth;
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Рисуем и сжимаем
+            ctx.drawImage(img, 0, 0, width, height);
+            var compressed = canvas.toDataURL('image/jpeg', quality);
+            
+            callback(compressed);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+}
+
+function removePhoto() {
+    selectedPhotoBase64 = null;
+    document.getElementById('photoInput').value = '';
+    document.getElementById('photoPreviewContainer').classList.add('hidden');
+    document.getElementById('photoUploadLabel').classList.remove('hidden');
+}
+
+// ============================================
 // ЗАГРУЗКА ДАННЫХ
 // ============================================
 async function loadItems() {
     try {
         allItems = await API.request('/api/items?status=active');
         console.log('✅ Items:', allItems);
-        renderFeed();
-        renderMap();
     } catch(e) {
         console.warn('⚠️ Items error:', e);
         allItems = [];
-        renderFeed();
-        renderMap();
+    }
+    renderFeed();
+    renderMap();
+}
+
+// ============================================
+// ПРОФИЛЬ
+// ============================================
+function updateProfile() {
+    // Используем имя из Telegram если на бэкенде "Пользователь"
+    var name = currentUserData?.name;
+    if (!name || name === 'Пользователь') {
+        name = (currentUser.first_name + ' ' + (currentUser.last_name || '')).trim();
+    }
+    
+    var username = currentUserData?.username || currentUser.username;
+    var karma = currentUserData?.karma || 0;
+    var itemsCount = currentUserData?.items_count || 0;
+    var initial = name.charAt(0).toUpperCase();
+    
+    // Аватар в профиле
+    document.getElementById('profileAvatar').textContent = initial;
+    document.getElementById('profileName').textContent = name;
+    document.getElementById('profileUsername').textContent = username ? '@' + username : '';
+    document.getElementById('profileKarma').textContent = karma;
+    document.getElementById('statPublished').textContent = itemsCount;
+    
+    // Отображаем роль пользователя
+    var roleEl = document.getElementById('profileRole');
+    if (roleEl && window.userPermissions) {
+        if (window.userPermissions.isCreator) {
+            roleEl.textContent = '👑 Создатель';
+            roleEl.className = 'text-yellow-200 text-xs mt-1 font-semibold';
+        } else if (window.userPermissions.isAdmin) {
+            roleEl.textContent = '⚙️ Администратор';
+            roleEl.className = 'text-purple-200 text-xs mt-1 font-semibold';
+        } else {
+            roleEl.textContent = '👤 Пользователь';
+            roleEl.className = 'text-emerald-200 text-xs mt-1';
+        }
+    }
+    
+    // Аватары в хедерах
+    ['profileBtnMap', 'profileBtnFeed'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = initial;
+    });
+}
+
+async function loadMyItems() {
+    var container = document.getElementById('myItems');
+    try {
+        var items = await API.request('/api/items?telegram_id=' + API.userId);
+        
+        if (!items || items.length === 0) {
+            container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">Нет объявлений</p>';
+            return;
+        }
+        
+        container.innerHTML = items.map(function(item) {
+            var status = item.status === 'taken' ? '✓ Забрали' : '● Активно';
+            var cls = item.status === 'taken' ? 'text-gray-400' : 'text-emerald-600';
+            return '<div class="flex justify-between items-center py-2 border-b last:border-0">' +
+                '<span class="text-sm">' + escapeHtml(item.title) + '</span>' +
+                '<span class="text-xs ' + cls + '">' + status + '</span></div>';
+        }).join('');
+    } catch(e) {
+        container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">Ошибка загрузки</p>';
     }
 }
 
@@ -498,37 +608,23 @@ function renderMap() {
     
     if (!allItems || allItems.length === 0) {
         emptyEl.classList.remove('hidden');
-        countEl.textContent = 'Нет находок поблизости. Добавьте первую!';
+        countEl.textContent = 'Нет находок поблизости';
         return;
     }
     
     emptyEl.classList.add('hidden');
-    countEl.textContent = allItems.length + ' ' + pluralize(allItems.length, 'находка', 'находки', 'находок') + ' поблизости';
+    countEl.textContent = allItems.length + ' ' + pluralize(allItems.length, 'находка', 'находки', 'находок');
     
-    // Размещаем маркеры
-    allItems.forEach(function(item, index) {
+    allItems.forEach(function(item) {
         var marker = document.createElement('div');
         marker.className = 'map-marker';
         
-        // Случайное положение для демо (в реальности использовать lat/lng)
         var left = 15 + Math.random() * 70;
         var top = 15 + Math.random() * 50;
         
-        if (item.latitude && item.longitude && userLocation) {
-            // Реальное позиционирование относительно пользователя
-            var dx = (item.longitude - userLocation.lng) * 5000;
-            var dy = (item.latitude - userLocation.lat) * 5000;
-            left = 50 + dx;
-            top = 50 - dy;
-            left = Math.max(10, Math.min(90, left));
-            top = Math.max(10, Math.min(70, top));
-        }
-        
         marker.style.left = left + '%';
         marker.style.top = top + '%';
-        
-        var emoji = getCategoryEmoji(item.category);
-        marker.innerHTML = '<div class="text-3xl drop-shadow-lg cursor-pointer" onclick="showItemOnMap(' + item.id + ')">' + emoji + '</div>';
+        marker.innerHTML = '<div class="text-3xl drop-shadow-lg" onclick="showItemOnMap(' + item.id + ')">' + getCategoryEmoji(item.category) + '</div>';
         
         container.appendChild(marker);
     });
@@ -539,51 +635,38 @@ function showItemOnMap(itemId) {
     if (!item) return;
     
     selectedMapItem = item;
-    
-    var countEl = document.getElementById('mapItemsCount');
-    countEl.innerHTML = '<strong>' + escapeHtml(item.title) + '</strong><br>' +
-        '<span class="text-xs text-gray-500">' + escapeHtml(item.description || 'Без описания') + '</span><br>' +
-        '<button onclick="openMapForItem()" class="mt-2 px-4 py-1 bg-emerald-500 text-white rounded-full text-xs">📍 Показать на карте</button>';
+    document.getElementById('mapItemsCount').innerHTML = 
+        '<strong>' + escapeHtml(item.title) + '</strong><br>' +
+        '<span class="text-xs text-gray-500">' + escapeHtml(item.description || '') + '</span><br>' +
+        '<button onclick="openMapForItem()" class="mt-2 px-4 py-1 bg-emerald-500 text-white rounded-full text-xs">📍 Открыть на карте</button>' +
+        '<button onclick="markAsTaken(' + item.id + ')" class="mt-2 ml-2 px-4 py-1 bg-gray-200 rounded-full text-xs">Забрал ✓</button>';
 }
 
 function openMapForItem() {
-    if (!selectedMapItem) return;
-    document.getElementById('mapProviderModal').classList.remove('hidden');
+    if (selectedMapItem) document.getElementById('mapProviderModal').classList.remove('hidden');
 }
 
 function openMap(provider) {
-    if (!selectedMapItem) return;
-    
-    var lat = selectedMapItem.latitude || 55.7558;
-    var lng = selectedMapItem.longitude || 37.6173;
+    var lat = selectedMapItem?.latitude || 55.7558;
+    var lng = selectedMapItem?.longitude || 37.6173;
     var url = '';
     
-    switch(provider) {
-        case 'yandex': url = 'https://yandex.ru/maps/?pt=' + lng + ',' + lat + '&z=17'; break;
-        case '2gis': url = 'https://2gis.ru/search/' + lat + ',' + lng; break;
-        case 'google': url = 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lng; break;
-    }
+    if (provider === 'yandex') url = 'https://yandex.ru/maps/?pt=' + lng + ',' + lat + '&z=17';
+    else if (provider === '2gis') url = 'https://2gis.ru/search/' + lat + ',' + lng;
+    else if (provider === 'google') url = 'https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lng;
     
-    window.open(url, '_blank');
+    if (url) window.open(url, '_blank');
     closeMapModal();
 }
 
-function closeMapModal() {
-    document.getElementById('mapProviderModal').classList.add('hidden');
-}
-
-function setRadius(r) {
+function setRadius(r, btn) {
     currentRadius = r;
-    
-    document.querySelectorAll('.radius-btn').forEach(function(btn) {
-        btn.classList.remove('bg-emerald-500', 'text-white', 'active');
-        btn.classList.add('bg-gray-100');
+    document.querySelectorAll('.radius-btn').forEach(function(b) {
+        b.classList.remove('bg-emerald-500', 'text-white');
+        b.classList.add('bg-gray-100');
     });
-    
-    event.target.classList.remove('bg-gray-100');
-    event.target.classList.add('bg-emerald-500', 'text-white', 'active');
-    
-    renderMap();
+    btn.classList.remove('bg-gray-100');
+    btn.classList.add('bg-emerald-500', 'text-white');
 }
 
 // ============================================
@@ -591,72 +674,41 @@ function setRadius(r) {
 // ============================================
 function renderFeed(category) {
     var container = document.getElementById('feedItems');
-    var items = allItems;
-    
-    if (category && category !== 'all') {
-        items = allItems.filter(function(i) { return i.category === category; });
-    }
+    var items = category && category !== 'all' ? allItems.filter(function(i) { return i.category === category; }) : allItems;
     
     if (!items || items.length === 0) {
-        container.innerHTML = '<div class="text-center py-12 text-gray-500"><div class="text-5xl mb-4">📦</div><p class="font-medium">Пока нет объявлений</p><p class="text-sm mt-2">Станьте первым!</p></div>';
+        container.innerHTML = '<div class="text-center py-12 text-gray-500"><div class="text-5xl mb-4">📦</div><p class="font-medium">Пока нет объявлений</p></div>';
         return;
     }
     
     container.innerHTML = items.map(function(item) {
+        var photoHtml = '';
+        if (item.photo_url && item.photo_url.length > 10) {
+            photoHtml = '<div class="relative mb-3"><img src="' + item.photo_url + '" class="w-full h-40 object-cover rounded-lg" onerror="this.parentElement.style.display=\'none\'"></div>';
+        } else {
+            // Если нет фото - показываем эмодзи категории
+            photoHtml = '<div class="w-full h-32 bg-gradient-to-br from-emerald-50 to-teal-100 rounded-lg mb-3 flex items-center justify-center text-5xl">' + getCategoryEmoji(item.category) + '</div>';
+        }
         return '<div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">' +
+            photoHtml +
             '<div class="flex justify-between items-start">' +
             '<h3 class="font-bold text-gray-800">' + escapeHtml(item.title) + '</h3>' +
-            '<span class="text-lg">' + getCategoryEmoji(item.category) + '</span>' +
-            '</div>' +
-            '<p class="text-gray-500 text-sm mt-1">' + escapeHtml(item.description || 'Без описания') + '</p>' +
+            '<span class="text-lg">' + getCategoryEmoji(item.category) + '</span></div>' +
+            '<p class="text-gray-500 text-sm mt-1 line-clamp-2">' + escapeHtml(item.description || '') + '</p>' +
             '<div class="flex justify-between items-center mt-3">' +
             '<span class="text-xs text-gray-400">' + getTimeAgo(item.created_at) + '</span>' +
-            '<button onclick="markAsTaken(' + item.id + ')" class="text-xs bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-medium">Забрал ✓</button>' +
-            '</div></div>';
+            '<button onclick="markAsTaken(' + item.id + ')" class="text-xs bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-medium">Забрал ✓</button></div></div>';
     }).join('');
 }
 
-function filterByCategory(cat) {
-    document.querySelectorAll('.filter-btn').forEach(function(btn) {
-        btn.classList.remove('bg-emerald-500', 'text-white');
-        btn.classList.add('bg-gray-100');
+function filterByCategory(cat, btn) {
+    document.querySelectorAll('.filter-btn').forEach(function(b) {
+        b.classList.remove('bg-emerald-500', 'text-white');
+        b.classList.add('bg-gray-100');
     });
-    event.target.classList.remove('bg-gray-100');
-    event.target.classList.add('bg-emerald-500', 'text-white');
-    
+    btn.classList.remove('bg-gray-100');
+    btn.classList.add('bg-emerald-500', 'text-white');
     renderFeed(cat);
-}
-
-// ============================================
-// ПРОФИЛЬ
-// ============================================
-function updateProfile() {
-    var u = currentUserData || currentUser;
-    var el = document.getElementById;
-    
-    document.getElementById('profileAvatar').textContent = (u.name || u.first_name || '?').charAt(0).toUpperCase();
-    document.getElementById('profileName').textContent = u.name || u.first_name || 'Пользователь';
-    document.getElementById('profileUsername').textContent = u.username ? '@' + u.username : '';
-    document.getElementById('profileKarma').textContent = u.karma || 0;
-    document.getElementById('statPublished').textContent = u.items_count || 0;
-}
-
-async function loadMyItems() {
-    try {
-        var items = await API.request('/api/items?telegram_id=' + API.userId);
-        var container = document.getElementById('myItems');
-        
-        if (!items || items.length === 0) {
-            container.innerHTML = '<p class="text-gray-500 text-sm text-center py-4">Нет объявлений</p>';
-            return;
-        }
-        
-        container.innerHTML = items.map(function(item) {
-            var status = item.status === 'taken' ? '✓ Забрали' : '● Активно';
-            var cls = item.status === 'taken' ? 'text-gray-400' : 'text-emerald-600';
-            return '<div class="flex justify-between items-center py-2 border-b last:border-0"><span class="text-sm">' + escapeHtml(item.title) + '</span><span class="text-xs ' + cls + '">' + status + '</span></div>';
-        }).join('');
-    } catch(e) {}
 }
 
 // ============================================
@@ -664,7 +716,6 @@ async function loadMyItems() {
 // ============================================
 function showScreen(name) {
     console.log('📱', name);
-    
     document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
     var target = document.getElementById('screen-' + name);
     if (target) target.classList.add('active');
@@ -685,7 +736,6 @@ function selectCategory(btn) {
 }
 
 function getLocation() {
-    var btn = document.getElementById('locationBtn');
     var text = document.getElementById('locationText');
     var mapLoc = document.getElementById('mapLocation');
     
@@ -699,13 +749,12 @@ function getLocation() {
     navigator.geolocation.getCurrentPosition(
         function(pos) {
             userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            text.textContent = '✅ Местоположение определено';
-            if (mapLoc) mapLoc.textContent = 'Координаты: ' + userLocation.lat.toFixed(4) + ', ' + userLocation.lng.toFixed(4);
-            console.log('📍 Location:', userLocation);
+            text.textContent = '✅ Определено';
+            if (mapLoc) mapLoc.textContent = userLocation.lat.toFixed(4) + ', ' + userLocation.lng.toFixed(4);
         },
         function(err) {
-            text.textContent = '❌ Не удалось определить';
-            console.warn('📍 Error:', err);
+            text.textContent = '📍 Нажмите для определения';
+            if (mapLoc) mapLoc.textContent = 'Геолокация недоступна';
         },
         { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -718,6 +767,10 @@ async function publishItem() {
     
     if (!title) { alert('Введите название'); return; }
     
+    var btn = document.getElementById('publishBtn');
+    btn.disabled = true;
+    btn.textContent = 'Публикация...';
+    
     var data = {
         title: title,
         description: desc + (details ? '\n📍 ' + details : ''),
@@ -729,12 +782,18 @@ async function publishItem() {
         data.longitude = userLocation.lng;
     }
     
+    if (selectedPhotoBase64) {
+        data.photo_url = selectedPhotoBase64;
+    }
+    
     try {
         await API.request('/api/items', { method: 'POST', body: JSON.stringify(data) });
         
+        // Очищаем форму
         document.getElementById('itemTitle').value = '';
         document.getElementById('itemDesc').value = '';
         document.getElementById('locationDetails').value = '';
+        removePhoto();
         
         document.getElementById('successModal').classList.remove('hidden');
         
@@ -746,6 +805,9 @@ async function publishItem() {
         loadItems();
     } catch(e) {
         alert('Ошибка: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Опубликовать 🚀';
     }
 }
 
@@ -771,7 +833,7 @@ async function setupCreator() {
     try {
         await API.request('/api/auth/setup-creator', { method: 'POST', body: JSON.stringify({ botToken: token }) });
         closeCreatorModal();
-        alert('🎉 Вы создатель!');
+        alert('🎉 Настройка завершена!');
         showAdminButtons();
     } catch(e) {
         alert('Ошибка: ' + e.message);
@@ -782,6 +844,7 @@ async function setupCreator() {
 // МОДАЛКИ
 // ============================================
 function closeCreatorModal() { document.getElementById('creatorModal').classList.add('hidden'); }
+function closeMapModal() { document.getElementById('mapProviderModal').classList.add('hidden'); }
 function closeSuccessModal() { document.getElementById('successModal').classList.add('hidden'); showScreen('feed'); }
 function openAdminPanel() { window.location.href = 'admin.html'; }
 

@@ -17,8 +17,8 @@
     ADMIN_IDS: [],
     
     // === API ===
-    // Когда будет бэкенд, укажи URL здесь
-    API_URL: null, // например: 'https://api.pomoechka.ru'
+    // URL бэкенда на Render
+    API_URL: 'https://pomoechka-mvp.onrender.com',
     
     // === Settings ===
     DEFAULT_ITEM_LIFETIME: 6 * 60 * 60 * 1000, // 6 часов

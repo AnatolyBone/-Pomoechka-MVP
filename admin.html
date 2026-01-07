@@ -13,20 +13,41 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { font-family: 'Inter', sans-serif; }
-        .sidebar { transition: transform 0.3s ease; }
+        body { overflow-x: hidden; }
+        .sidebar { 
+            transition: transform 0.3s ease; 
+            width: 256px;
+            min-width: 256px;
+        }
         .sidebar.collapsed { transform: translateX(-100%); }
         @media (min-width: 1024px) {
-            .sidebar.collapsed { transform: translateX(0); }
+            .sidebar { transform: translateX(0) !important; }
+        }
+        @media (max-width: 1023px) {
+            .sidebar { 
+                position: fixed;
+                z-index: 50;
+            }
+            .main-content { margin-left: 0 !important; }
+        }
+        @media (min-width: 1024px) {
+            .main-content { margin-left: 256px; }
         }
         .stat-card { transition: all 0.2s ease; }
         .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
-        .status-badge { padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; }
+        .status-badge { padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; display: inline-block; }
         .status-active { background: #d1fae5; color: #065f46; }
         .status-taken { background: #e0e7ff; color: #3730a3; }
         .status-expired { background: #fef3c7; color: #92400e; }
         .status-pending { background: #fef3c7; color: #92400e; }
         .status-resolved { background: #d1fae5; color: #065f46; }
         .status-hidden { background: #fee2e2; color: #991b1b; }
+        /* Фикс для мобильных */
+        .nav-link { display: flex; align-items: center; gap: 12px; }
+        .hidden { display: none !important; }
+        /* Таблица */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -54,7 +75,10 @@
                 <p class="font-semibold mb-2">🔧 Первичная настройка</p>
                 <p class="text-sm mb-2">Это первый запуск. Ваш Telegram ID будет установлен как создатель:</p>
                 <code id="setupUserId" class="block bg-blue-100 px-3 py-2 rounded text-center font-mono text-lg"></code>
-                <button onclick="setupCreator()" class="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">
+                <input id="setupBotToken" type="text" placeholder="Токен бота (123456789:ABCdef...)" 
+                       class="w-full mt-3 px-3 py-2 border border-blue-300 rounded-lg text-sm">
+                <p class="text-xs text-blue-600 mt-1">Токен бота для уведомлений (опционально)</p>
+                <button onclick="setupCreator()" class="w-full mt-3 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700">
                     ✓ Подтвердить и войти
                 </button>
             </div>
@@ -118,7 +142,7 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="lg:ml-64 min-h-screen">
+        <main class="main-content min-h-screen">
             
             <!-- Header -->
             <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
@@ -384,12 +408,26 @@
     </div>
 
     <script src="js/config.js"></script>
+    <script>
+        console.log('✅ Admin CONFIG:', CONFIG.API_URL);
+        // Переопределяем hasBackend для корректной работы
+        window.hasBackend = () => !!CONFIG.API_URL;
+    </script>
     <script src="js/api.js"></script>
     <script>
         // === Admin Panel Logic ===
         
         let currentSection = 'dashboard';
         let isAuthenticated = false;
+        
+        // Хелпер для получения заголовков API
+        API.getHeaders = function() {
+            const userId = ENV.getUserId();
+            return {
+                'Content-Type': 'application/json',
+                'X-Telegram-ID': userId ? String(userId) : ''
+            };
+        };
         
         // Initialize
         document.addEventListener('DOMContentLoaded', async () => {
@@ -433,71 +471,84 @@
                 return;
             }
             
-            // Проверяем через API, установлен ли создатель
+            console.log('🔍 Checking auth for user:', userId);
+            
+            // Проверяем через API с бэкенда
             try {
-                const adminCheck = await API.isAdmin();
-                const isCreator = await API.isCreator();
+                // Сначала проверяем, есть ли создатель в системе
+                const creatorCheck = await fetch(`${CONFIG.API_URL}/api/auth/check-creator`, {
+                    headers: { 'X-Telegram-ID': String(userId) }
+                });
+                const creatorData = await creatorCheck.json();
+                console.log('🔍 Creator check:', creatorData);
                 
-                if (adminCheck) {
-                    showAdminPanel(user, isCreator);
+                // Проверяем права текущего пользователя
+                const adminCheck = await fetch(`${CONFIG.API_URL}/api/auth/check-admin`, {
+                    headers: { 'X-Telegram-ID': String(userId) }
+                });
+                const adminData = await adminCheck.json();
+                console.log('🔐 Admin check:', adminData);
+                
+                // Если пользователь - админ или создатель, показываем панель
+                if (adminData.isAdmin || adminData.isCreator) {
+                    showAdminPanel(user, adminData.isCreator);
                     return;
                 }
                 
-                // Если не админ, проверяем, может быть нужно создать создателя
-                // Пробуем получить настройки админа - если ошибка, значит создателя нет
-                try {
-                    await API.getAdminSettings();
-                } catch (e) {
-                    // Создателя нет - предлагаем создать
+                // Если создателя нет в системе, предлагаем настройку
+                if (creatorData.hasCreator === false) {
+                    console.log('👑 No creator found, showing setup');
                     authStatus.classList.add('hidden');
                     authSetup.classList.remove('hidden');
                     document.getElementById('setupUserId').textContent = userId;
                     return;
                 }
                 
-                // Админа нет
+                // Пользователь не админ
                 authStatus.classList.add('hidden');
                 authError.classList.remove('hidden');
+                
             } catch (error) {
                 console.error('Auth check error:', error);
-                // Если бэкенд недоступен, используем старую логику
-                if (!CONFIG.CREATOR_ID) {
-                    authStatus.classList.add('hidden');
-                    authSetup.classList.remove('hidden');
-                    document.getElementById('setupUserId').textContent = userId;
-                } else if (ENV.isAdmin()) {
-                    showAdminPanel(user, ENV.isCreator());
-                } else {
-                    authStatus.classList.add('hidden');
-                    authError.classList.remove('hidden');
-                }
+                // Если бэкенд недоступен, показываем ошибку
+                authStatus.classList.add('hidden');
+                authError.classList.remove('hidden');
+                document.querySelector('#authError p:last-child').textContent = 'Ошибка подключения к серверу';
             }
         }
         
         async function setupCreator() {
             const userId = ENV.getUserId();
             const user = ENV.getUser();
+            const botToken = document.getElementById('setupBotToken')?.value?.trim() || 'placeholder:token';
+            
+            console.log('🔧 Setting up creator:', userId);
             
             try {
-                const result = await API.setupCreator({
-                    name: user.first_name,
-                    username: user.username,
-                    first_name: user.first_name
+                const response = await fetch(`${CONFIG.API_URL}/api/auth/setup-creator`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Telegram-ID': String(userId)
+                    },
+                    body: JSON.stringify({
+                        botToken: botToken,
+                        name: user.first_name,
+                        username: user.username
+                    })
                 });
                 
-                if (result.success) {
+                const result = await response.json();
+                console.log('✅ Setup result:', result);
+                
+                if (result.success || result.alreadyExists) {
                     showAdminPanel(user, true);
                 } else {
-                    alert('Ошибка при создании создателя');
+                    alert('Ошибка: ' + (result.error || 'Не удалось настроить создателя'));
                 }
             } catch (error) {
                 console.error('Setup creator error:', error);
-                alert(`Ошибка: ${error.message}\n\nЕсли бэкенд недоступен, добавьте в js/config.js:\n\nCREATOR_ID: ${userId}`);
-                
-                // Fallback для демо
-                localStorage.setItem('pomoechka_creator_id', userId);
-                CONFIG.CREATOR_ID = userId;
-                showAdminPanel(user, true);
+                alert(`Ошибка подключения к серверу: ${error.message}`);
             }
         }
         

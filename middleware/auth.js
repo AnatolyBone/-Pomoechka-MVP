@@ -15,48 +15,43 @@ function getTelegramId(req) {
     return telegramId ? String(telegramId) : null;
 }
 
-// Получение или создание пользователя
+// middleware/auth.js - проверьте что getOrCreateUser обновляет имя
+
 async function getOrCreateUser(telegramId, userData = {}) {
     const db = getDatabase();
     
     return new Promise((resolve, reject) => {
-        // Сначала пытаемся найти пользователя
         db.get('SELECT * FROM users WHERE telegram_id = ?', [telegramId], (err, user) => {
-            if (err) {
-                console.error('❌ DB error:', err);
-                return reject(err);
-            }
+            if (err) return reject(err);
             
             if (user) {
-                console.log('✅ Пользователь найден:', user.id);
-                return resolve(formatUser(user));
+                // Обновляем имя если передано и отличается
+                if (userData.name && userData.name !== user.name && user.name === 'Пользователь') {
+                    db.run(
+                        'UPDATE users SET name = ?, username = ? WHERE telegram_id = ?',
+                        [userData.name, userData.username || user.username, telegramId]
+                    );
+                    user.name = userData.name;
+                    if (userData.username) user.username = userData.username;
+                }
+                return resolve(user);
             }
             
-            // Создаём нового пользователя
+            // Создаём нового
             const name = userData.name || userData.first_name || 'Пользователь';
             const username = userData.username || '';
-            const initial = name.charAt(0).toUpperCase();
-            const now = Date.now();
             
             db.run(
-                `INSERT INTO users (
-                    telegram_id, name, username, initial, karma,
-                    stats_published, stats_taken, stats_saved_kg,
-                    stats_fast_pickups, stats_thanks, stats_reliability,
-                    achievements, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, 0, 0, 0, 0, 0, 0, 100, '[]', ?, ?)`,
-                [telegramId, name, username || null, initial, now, now],
+                `INSERT INTO users (telegram_id, name, username, karma, items_count, created_at, updated_at)
+                 VALUES (?, ?, ?, 0, 0, ?, ?)`,
+                [telegramId, name, username, Date.now(), Date.now()],
                 function(err) {
-                    if (err) {
-                        console.error('❌ Ошибка создания пользователя:', err);
-                        return reject(err);
-                    }
-                    
-                    console.log('✅ Создан новый пользователь:', this.lastID);
+                    if (err) return reject(err);
                     
                     db.get('SELECT * FROM users WHERE id = ?', [this.lastID], (err, newUser) => {
                         if (err) return reject(err);
-                        resolve(formatUser(newUser));
+                        console.log('✅ Создан пользователь:', newUser.id, name);
+                        resolve(newUser);
                     });
                 }
             );

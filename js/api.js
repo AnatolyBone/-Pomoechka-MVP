@@ -453,14 +453,53 @@ const API = {
     // === Admin API ===
     async isAdmin() {
         if (hasBackend()) {
-            const response = await fetch(`${CONFIG.API_URL}/auth/check-admin`);
-            const data = await response.json();
-            return data.isAdmin;
+            try {
+                const userId = ENV.getUserId();
+                const response = await fetch(`${CONFIG.API_URL}/api/auth/check-admin`, {
+                    headers: { 'X-Telegram-ID': userId ? String(userId) : '' }
+                });
+                const data = await response.json();
+                return data.isAdmin === true;
+            } catch (e) {
+                console.error('isAdmin error:', e);
+                return ENV.isAdmin();
+            }
         }
         return ENV.isAdmin();
     },
 
+    async isCreator() {
+        if (hasBackend()) {
+            try {
+                const userId = ENV.getUserId();
+                const response = await fetch(`${CONFIG.API_URL}/api/auth/check-admin`, {
+                    headers: { 'X-Telegram-ID': userId ? String(userId) : '' }
+                });
+                const data = await response.json();
+                return data.isCreator === true;
+            } catch (e) {
+                console.error('isCreator error:', e);
+                return ENV.isCreator();
+            }
+        }
+        return ENV.isCreator();
+    },
+
     async getAdminSettings() {
+        if (hasBackend()) {
+            try {
+                const userId = ENV.getUserId();
+                const response = await fetch(`${CONFIG.API_URL}/api/admin/settings`, {
+                    headers: { 'X-Telegram-ID': userId ? String(userId) : '' }
+                });
+                if (!response.ok) throw new Error('Not admin');
+                return await response.json();
+            } catch (e) {
+                console.error('getAdminSettings error:', e);
+                throw e;
+            }
+        }
+        
         if (!await this.isAdmin()) throw new Error('Unauthorized');
         
         return {
@@ -477,6 +516,22 @@ const API = {
                 thanks: CONFIG.KARMA_FOR_THANKS
             }
         };
+    },
+    
+    async setupCreator(data) {
+        if (hasBackend()) {
+            const userId = ENV.getUserId();
+            const response = await fetch(`${CONFIG.API_URL}/api/auth/setup-creator`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Telegram-ID': userId ? String(userId) : ''
+                },
+                body: JSON.stringify(data)
+            });
+            return await response.json();
+        }
+        throw new Error('Backend required');
     }
 };
 
