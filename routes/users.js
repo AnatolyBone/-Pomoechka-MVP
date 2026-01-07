@@ -1,137 +1,84 @@
+// routes/users.js - PostgreSQL версия
 const express = require('express');
 const router = express.Router();
-const { verifyTelegramAuth, getOrCreateUser } = require('../middleware/auth');
-const { getDatabase } = require('../db/database');
+const { pool } = require('../db/database');
 
-// Get current user
-router.get('/me', verifyTelegramAuth, async (req, res) => {
-    try {
-        const user = await getOrCreateUser(req.telegramId, req.body);
-        res.json(user);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Update user
-router.patch('/me', verifyTelegramAuth, async (req, res) => {
-    try {
-        const db = getDatabase();
-        const user = await getOrCreateUser(req.telegramId);
-        
-        const updates = [];
-        const values = [];
-        const allowedFields = ['name', 'username', 'initial'];
-        
-        Object.keys(req.body).forEach(key => {
-            if (allowedFields.includes(key)) {
-                updates.push(`${key} = ?`);
-                values.push(req.body[key]);
-            }
-        });
-        
-        if (updates.length === 0) {
-            return res.status(400).json({ error: 'No valid fields to update' });
-        }
-        
-        updates.push('updated_at = ?');
-        values.push(Date.now());
-        values.push(user.id);
-        
-        await new Promise((resolve, reject) => {
-            db.run(
-                `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
-                values,
-                (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                }
-            );
-        });
-        
-        // Reload user
-        const updatedUser = await new Promise((resolve, reject) => {
-            db.get(
-                'SELECT * FROM users WHERE id = ?',
-                [user.id],
-                (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                }
-            );
-        });
-        
-        const formatted = formatUser(updatedUser);
-        res.json(formatted);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// Add karma
-router.post('/karma', verifyTelegramAuth, async (req, res) => {
-    try {
-        const db = getDatabase();
-        const user = await getOrCreateUser(req.telegramId);
-        const { amount } = req.body;
-        
-        if (!amount || amount <= 0) {
-            return res.status(400).json({ error: 'Invalid karma amount' });
-        }
-        
-        const now = Date.now();
-        await new Promise((resolve, reject) => {
-            db.run(
-                'UPDATE users SET karma = karma + ?, updated_at = ? WHERE id = ?',
-                [amount, now, user.id],
-                (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                }
-            );
-        });
-        
-        // Reload user
-        const updatedUser = await new Promise((resolve, reject) => {
-            db.get(
-                'SELECT * FROM users WHERE id = ?',
-                [user.id],
-                (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                }
-            );
-        });
-        
-        res.json({ karma: updatedUser.karma });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-function formatUser(user) {
-    if (!user) return null;
-    
-    return {
-        id: user.id,
-        telegramId: user.telegram_id,
-        name: user.name,
-        username: user.username,
-        initial: user.initial,
-        karma: user.karma,
-        stats: {
-            published: user.stats_published,
-            taken: user.stats_taken,
-            savedKg: user.stats_saved_kg,
-            fastPickups: user.stats_fast_pickups,
-            thanks: user.stats_thanks,
-            reliability: user.stats_reliability
-        },
-        achievements: JSON.parse(user.achievements || '[]'),
-        createdAt: user.created_at,
-        updatedAt: user.updated_at
-    };
+function getTelegramId(req) {
+    return req.headers['x-telegram-id'] || req.query.telegram_id || null;
 }
 
-module.exports = router;
+// GET /api/users/leaderboard - топ пользователей
+router.get('/leaderboard', async (req, res) => {
+    const { limit = 10 } = req.query;
+    
+    try {
+        const result = await pool.query(
+            'SELECT id, name, username, karma, items_count FROM users ORDER BY karma DESC LIMIT $1',
+            [parseInt(limit)]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        console.error('❌ Ошибка получения leaderboard:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
 
+// GET /api/users/:telegram_id - профиль пользователя
+router.get('/:telegram_id', async (req, res) => {
+    const { telegram_id } = req.params;
+    
+    try {
+        const result = await pool.query(
+            'SELECT * FROM users WHERE telegram_id = $1',
+            [telegram_id]
+        );
+        
+        const user = result.rows[0];
+        
+        if (!user) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+        
+        res.json({
+            id: user.id,
+            telegram_id: user.telegram_id,
+            name: user.name,
+            username: user.username,
+            karma: user.karma || 0,
+            items_count: user.items_count || 0,
+            stats: {
+                published: user.stats_published || 0,
+                taken: user.stats_taken || 0,
+                saved_kg: user.stats_saved_kg || 0
+            }
+        });
+    } catch (err) {
+        console.error('❌ Ошибка получения пользователя:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// POST /api/users/:telegram_id/karma - добавить карму
+router.post('/:telegram_id/karma', async (req, res) => {
+    const { telegram_id } = req.params;
+    const { amount = 5, reason = 'thanks' } = req.body;
+    
+    try {
+        const result = await pool.query(
+            'UPDATE users SET karma = karma + $1 WHERE telegram_id = $2 RETURNING *',
+            [parseInt(amount), telegram_id]
+        );
+        
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+        
+        console.log('✅ Карма добавлена:', telegram_id, '+', amount);
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('❌ Ошибка добавления кармы:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+module.exports = router;

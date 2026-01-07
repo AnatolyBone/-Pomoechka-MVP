@@ -1,223 +1,243 @@
+// routes/admin.js - PostgreSQL версия
 const express = require('express');
 const router = express.Router();
+const { pool } = require('../db/database');
 const { requireAdmin, requireCreator } = require('../middleware/auth');
-const { getDatabase } = require('../db/database');
 
-// Get admin settings
-router.get('/settings', requireAdmin, async (req, res) => {
+// GET /api/admin/stats - статистика
+router.get('/stats', requireAdmin, async (req, res) => {
     try {
-        const db = getDatabase();
-        const settings = await new Promise((resolve, reject) => {
-            db.all(
-                'SELECT key, value FROM settings',
-                [],
-                (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows);
-                }
-            );
-        });
-        
-        const formatted = {};
-        settings.forEach(s => {
-            formatted[s.key] = s.value;
-        });
-        
-        // Get creator ID
-        const creator = await new Promise((resolve, reject) => {
-            db.get(
-                'SELECT telegram_id FROM admins WHERE is_creator = 1',
-                [],
-                (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                }
-            );
-        });
-        
-        // Get admin IDs
-        const admins = await new Promise((resolve, reject) => {
-            db.all(
-                'SELECT telegram_id FROM admins WHERE is_creator = 0',
-                [],
-                (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows);
-                }
-            );
-        });
+        const [usersResult, itemsResult, activeResult, takenResult] = await Promise.all([
+            pool.query('SELECT COUNT(*) as count FROM users'),
+            pool.query('SELECT COUNT(*) as count FROM items'),
+            pool.query("SELECT COUNT(*) as count FROM items WHERE status = 'active'"),
+            pool.query("SELECT COUNT(*) as count FROM items WHERE status = 'taken'")
+        ]);
         
         res.json({
-            creatorId: creator?.telegram_id || null,
-            adminIds: admins.map(a => a.telegram_id),
-            itemLifetime: parseInt(formatted.item_lifetime_hours || '6'),
-            autoHideReports: parseInt(formatted.auto_hide_reports || '3'),
-            requirePhoto: formatted.require_photo === '1',
-            preModeration: formatted.pre_moderation === '1',
-            karma: {
-                publish: parseInt(formatted.karma_publish || '10'),
-                taken: parseInt(formatted.karma_taken || '25'),
-                extend: parseInt(formatted.karma_extend || '2'),
-                thanks: parseInt(formatted.karma_thanks || '5')
-            }
+            totalUsers: parseInt(usersResult.rows[0]?.count || 0),
+            totalItems: parseInt(itemsResult.rows[0]?.count || 0),
+            activeItems: parseInt(activeResult.rows[0]?.count || 0),
+            takenItems: parseInt(takenResult.rows[0]?.count || 0)
         });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+    } catch (err) {
+        console.error('❌ Ошибка получения статистики:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
 
-// Update admin settings
-router.post('/settings', requireAdmin, async (req, res) => {
+// GET /api/admin/items - все объявления для модерации
+router.get('/items', requireAdmin, async (req, res) => {
+    const { status, limit = 50 } = req.query;
+    
     try {
-        const db = getDatabase();
-        const now = Date.now();
+        let sql = 'SELECT * FROM items';
+        const params = [];
+        let paramIndex = 0;
         
-        const updates = {
-            item_lifetime_hours: req.body.itemLifetime?.toString(),
-            auto_hide_reports: req.body.autoHideReports?.toString(),
-            require_photo: req.body.requirePhoto ? '1' : '0',
-            pre_moderation: req.body.preModeration ? '1' : '0',
-            karma_publish: req.body.karma?.publish?.toString(),
-            karma_taken: req.body.karma?.taken?.toString(),
-            karma_extend: req.body.karma?.extend?.toString(),
-            karma_thanks: req.body.karma?.thanks?.toString()
-        };
-        
-        for (const [key, value] of Object.entries(updates)) {
-            if (value !== undefined) {
-                await new Promise((resolve, reject) => {
-                    db.run(
-                        'UPDATE settings SET value = ?, updated_at = ? WHERE key = ?',
-                        [value, now, key],
-                        (err) => {
-                            if (err) reject(err);
-                            else resolve();
-                        }
-                    );
-                });
-            }
+        if (status) {
+            sql += ` WHERE status = $${++paramIndex}`;
+            params.push(status);
         }
         
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+        sql += ' ORDER BY created_at DESC';
+        sql += ` LIMIT $${++paramIndex}`;
+        params.push(parseInt(limit));
+        
+        const result = await pool.query(sql, params);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('❌ Ошибка получения items для модерации:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
 
-// Get admins list (creator only)
+// DELETE /api/admin/items/:id - удалить объявление
+router.delete('/items/:id', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        await pool.query('DELETE FROM items WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('❌ Ошибка удаления item:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// PATCH /api/admin/items/:id - обновить статус
+router.patch('/items/:id', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    try {
+        await pool.query('UPDATE items SET status = $1, updated_at = NOW() WHERE id = $2', [status, id]);
+        const result = await pool.query('SELECT * FROM items WHERE id = $1', [id]);
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('❌ Ошибка обновления item:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// GET /api/admin/reports - жалобы
+router.get('/reports', requireAdmin, async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT r.*, i.title as item_title 
+            FROM reports r 
+            LEFT JOIN items i ON r.item_id = i.id 
+            ORDER BY r.created_at DESC 
+            LIMIT 50
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('❌ Ошибка получения reports:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// PATCH /api/admin/reports/:id - обновить статус жалобы
+router.patch('/reports/:id', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    try {
+        await pool.query(
+            'UPDATE reports SET status = $1, updated_at = $2 WHERE id = $3', 
+            [status, Date.now(), id]
+        );
+        const result = await pool.query('SELECT * FROM reports WHERE id = $1', [id]);
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error('❌ Ошибка обновления report:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// GET /api/admin/admins - список админов
 router.get('/admins', requireCreator, async (req, res) => {
     try {
-        const db = getDatabase();
-        const admins = await new Promise((resolve, reject) => {
-            db.all(
-                'SELECT * FROM admins ORDER BY is_creator DESC, created_at ASC',
-                [],
-                (err, rows) => {
-                    if (err) reject(err);
-                    else resolve(rows);
-                }
-            );
-        });
-        
-        const formatted = admins.map(a => ({
-            id: a.id,
-            telegramId: a.telegram_id,
-            isCreator: a.is_creator === 1,
-            createdAt: a.created_at
-        }));
-        
-        res.json(formatted);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+        const result = await pool.query(`
+            SELECT a.*, u.name, u.username 
+            FROM admins a 
+            LEFT JOIN users u ON a.telegram_id = u.telegram_id 
+            ORDER BY a.is_creator DESC, a.created_at DESC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('❌ Ошибка получения admins:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
 
-// Add admin (creator only)
+// POST /api/admin/admins - добавить админа
 router.post('/admins', requireCreator, async (req, res) => {
+    const { telegram_id, name } = req.body;
+    const creatorId = req.headers['x-telegram-id'];
+    
+    if (!telegram_id) {
+        return res.status(400).json({ error: 'telegram_id обязателен' });
+    }
+    
     try {
-        const db = getDatabase();
-        const { telegramId } = req.body;
+        // Проверяем не существует ли уже
+        const existingResult = await pool.query(
+            'SELECT * FROM admins WHERE telegram_id = $1', 
+            [telegram_id]
+        );
         
-        if (!telegramId) {
-            return res.status(400).json({ error: 'Telegram ID required' });
+        if (existingResult.rows.length > 0) {
+            return res.status(400).json({ error: 'Уже является админом' });
         }
         
-        // Check if already admin
-        const existing = await new Promise((resolve, reject) => {
-            db.get(
-                'SELECT * FROM admins WHERE telegram_id = ?',
-                [telegramId],
-                (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                }
-            );
-        });
+        // Добавляем
+        const result = await pool.query(
+            'INSERT INTO admins (telegram_id, is_creator, created_by, created_at) VALUES ($1, 0, $2, $3) RETURNING *',
+            [telegram_id, creatorId, Date.now()]
+        );
         
-        if (existing) {
-            return res.status(400).json({ error: 'User is already an admin' });
-        }
+        // Создаём пользователя если не существует
+        await pool.query(
+            `INSERT INTO users (telegram_id, name, karma, items_count, created_at, updated_at)
+             VALUES ($1, $2, 0, 0, $3, $4) ON CONFLICT (telegram_id) DO NOTHING`,
+            [telegram_id, name || 'Админ', Date.now(), Date.now()]
+        );
         
-        const now = Date.now();
-        await new Promise((resolve, reject) => {
-            db.run(
-                'INSERT INTO admins (telegram_id, is_creator, created_by, created_at) VALUES (?, 0, ?, ?)',
-                [telegramId, req.adminId, now],
-                function(err) {
-                    if (err) reject(err);
-                    else resolve(this.lastID);
-                }
-            );
-        });
-        
-        res.json({ success: true, message: 'Admin added' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.log('✅ Добавлен админ:', telegram_id);
+        res.status(201).json(result.rows[0]);
+    } catch (err) {
+        console.error('❌ Ошибка добавления админа:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
 
-// Remove admin (creator only)
-router.delete('/admins/:telegramId', requireCreator, async (req, res) => {
+// DELETE /api/admin/admins/:id - удалить админа
+router.delete('/admins/:id', requireCreator, async (req, res) => {
+    const { id } = req.params;
+    
     try {
-        const db = getDatabase();
-        const telegramId = parseInt(req.params.telegramId);
-        
-        // Don't allow removing creator
-        const admin = await new Promise((resolve, reject) => {
-            db.get(
-                'SELECT * FROM admins WHERE telegram_id = ?',
-                [telegramId],
-                (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                }
-            );
-        });
+        // Проверяем что это не создатель
+        const adminResult = await pool.query('SELECT * FROM admins WHERE id = $1', [id]);
+        const admin = adminResult.rows[0];
         
         if (!admin) {
-            return res.status(404).json({ error: 'Admin not found' });
+            return res.status(404).json({ error: 'Админ не найден' });
         }
         
-        if (admin.is_creator === 1) {
-            return res.status(400).json({ error: 'Cannot remove creator' });
+        if (admin.is_creator) {
+            return res.status(403).json({ error: 'Нельзя удалить создателя' });
         }
         
-        await new Promise((resolve, reject) => {
-            db.run(
-                'DELETE FROM admins WHERE telegram_id = ? AND is_creator = 0',
-                [telegramId],
-                (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                }
+        await pool.query('DELETE FROM admins WHERE id = $1', [id]);
+        console.log('✅ Удалён админ:', id);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('❌ Ошибка удаления админа:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// GET /api/admin/settings - получить настройки
+router.get('/settings', requireAdmin, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM settings');
+        const settings = {};
+        for (const row of result.rows) {
+            settings[row.key] = row.value;
+        }
+        res.json(settings);
+    } catch (err) {
+        console.error('❌ Ошибка получения настроек:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// PATCH /api/admin/settings - обновить настройки
+router.patch('/settings', requireCreator, async (req, res) => {
+    const updates = req.body;
+    
+    try {
+        for (const [key, value] of Object.entries(updates)) {
+            await pool.query(
+                `INSERT INTO settings (key, value, updated_at) VALUES ($1, $2, $3) 
+                 ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = $3`,
+                [key, String(value), Date.now()]
             );
-        });
+        }
         
-        res.json({ success: true, message: 'Admin removed' });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+        const result = await pool.query('SELECT * FROM settings');
+        const settings = {};
+        for (const row of result.rows) {
+            settings[row.key] = row.value;
+        }
+        
+        console.log('✅ Настройки обновлены');
+        res.json(settings);
+    } catch (err) {
+        console.error('❌ Ошибка обновления настроек:', err);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
 });
 
 module.exports = router;
-

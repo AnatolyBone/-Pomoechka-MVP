@@ -1,5 +1,4 @@
-// middleware/auth.js
-const { getDatabase } = require('../db/database');
+// middleware/auth.js - PostgreSQL версия
 
 // Получение Telegram ID из заголовков
 function getTelegramId(req) {
@@ -15,93 +14,87 @@ function getTelegramId(req) {
     return telegramId ? String(telegramId) : null;
 }
 
-// middleware/auth.js - проверьте что getOrCreateUser обновляет имя
-
 async function getOrCreateUser(telegramId, userData = {}) {
-    const db = getDatabase();
+    const { pool } = require('../db/database');
     
-    return new Promise((resolve, reject) => {
-        db.get('SELECT * FROM users WHERE telegram_id = ?', [telegramId], (err, user) => {
-            if (err) return reject(err);
-            
-            if (user) {
-                // Обновляем имя если передано и отличается
-                if (userData.name && userData.name !== user.name && user.name === 'Пользователь') {
-                    db.run(
-                        'UPDATE users SET name = ?, username = ? WHERE telegram_id = ?',
-                        [userData.name, userData.username || user.username, telegramId]
-                    );
-                    user.name = userData.name;
-                    if (userData.username) user.username = userData.username;
-                }
-                return resolve(user);
+    try {
+        // Проверяем существует ли пользователь
+        const result = await pool.query('SELECT * FROM users WHERE telegram_id = $1', [telegramId]);
+        let user = result.rows[0];
+        
+        if (user) {
+            // Обновляем имя если передано и отличается
+            if (userData.name && userData.name !== user.name && user.name === 'Пользователь') {
+                await pool.query(
+                    'UPDATE users SET name = $1, username = $2 WHERE telegram_id = $3',
+                    [userData.name, userData.username || user.username, telegramId]
+                );
+                user.name = userData.name;
+                if (userData.username) user.username = userData.username;
             }
-            
-            // Создаём нового
-            const name = userData.name || userData.first_name || 'Пользователь';
-            const username = userData.username || '';
-            
-            db.run(
-                `INSERT INTO users (telegram_id, name, username, karma, items_count, created_at, updated_at)
-                 VALUES (?, ?, ?, 0, 0, ?, ?)`,
-                [telegramId, name, username, Date.now(), Date.now()],
-                function(err) {
-                    if (err) return reject(err);
-                    
-                    db.get('SELECT * FROM users WHERE id = ?', [this.lastID], (err, newUser) => {
-                        if (err) return reject(err);
-                        console.log('✅ Создан пользователь:', newUser.id, name);
-                        resolve(newUser);
-                    });
-                }
-            );
-        });
-    });
+            return user;
+        }
+        
+        // Создаём нового
+        const name = userData.name || userData.first_name || 'Пользователь';
+        const username = userData.username || '';
+        
+        const insertResult = await pool.query(
+            `INSERT INTO users (telegram_id, name, username, karma, items_count, created_at, updated_at)
+             VALUES ($1, $2, $3, 0, 0, $4, $5) RETURNING *`,
+            [telegramId, name, username, Date.now(), Date.now()]
+        );
+        
+        const newUser = insertResult.rows[0];
+        console.log('✅ Создан пользователь:', newUser.id, name);
+        return newUser;
+        
+    } catch (err) {
+        console.error('❌ getOrCreateUser error:', err);
+        throw err;
+    }
 }
 
 // Проверка: является ли пользователь создателем
 async function isCreator(telegramId) {
-    const db = getDatabase();
-    return new Promise((resolve, reject) => {
-        db.get(
-            'SELECT * FROM admins WHERE telegram_id = ? AND is_creator = 1',
-            [telegramId],
-            (err, row) => {
-                if (err) return reject(err);
-                resolve(!!row);
-            }
+    const { pool } = require('../db/database');
+    try {
+        const result = await pool.query(
+            'SELECT * FROM admins WHERE telegram_id = $1 AND is_creator = 1',
+            [telegramId]
         );
-    });
+        return result.rows.length > 0;
+    } catch (err) {
+        console.error('❌ isCreator error:', err);
+        return false;
+    }
 }
 
 // Проверка: является ли пользователь админом
 async function isAdmin(telegramId) {
-    const db = getDatabase();
-    return new Promise((resolve, reject) => {
-        db.get(
-            'SELECT * FROM admins WHERE telegram_id = ?',
-            [telegramId],
-            (err, row) => {
-                if (err) return reject(err);
-                resolve(!!row);
-            }
+    const { pool } = require('../db/database');
+    try {
+        const result = await pool.query(
+            'SELECT * FROM admins WHERE telegram_id = $1',
+            [telegramId]
         );
-    });
+        return result.rows.length > 0;
+    } catch (err) {
+        console.error('❌ isAdmin error:', err);
+        return false;
+    }
 }
 
 // Проверка: есть ли уже создатель в системе
 async function hasCreator() {
-    const db = getDatabase();
-    return new Promise((resolve, reject) => {
-        db.get(
-            'SELECT * FROM admins WHERE is_creator = 1',
-            [],
-            (err, row) => {
-                if (err) return reject(err);
-                resolve(!!row);
-            }
-        );
-    });
+    const { pool } = require('../db/database');
+    try {
+        const result = await pool.query('SELECT * FROM admins WHERE is_creator = 1');
+        return result.rows.length > 0;
+    } catch (err) {
+        console.error('❌ hasCreator error:', err);
+        return true; // При ошибке считаем что есть
+    }
 }
 
 function formatUser(user) {

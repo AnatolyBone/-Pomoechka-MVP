@@ -1,85 +1,56 @@
+// routes/analytics.js - PostgreSQL версия
 const express = require('express');
 const router = express.Router();
 const { requireAdmin } = require('../middleware/auth');
-const { getDatabase } = require('../db/database');
+const { pool } = require('../db/database');
 
-// Get analytics (admin only)
+// GET /api/analytics - статистика для админов
 router.get('/', requireAdmin, async (req, res) => {
     try {
-        const db = getDatabase();
-        const now = Date.now();
+        // Auto-expire items
+        await pool.query(
+            "UPDATE items SET status = 'expired', updated_at = NOW() WHERE status = 'active' AND expires_at < NOW()"
+        );
         
-        // Auto-expire items first
-        await new Promise((resolve, reject) => {
-            db.run(
-                'UPDATE items SET status = ?, updated_at = ? WHERE status = ? AND expires_at < ?',
-                ['expired', now, 'active', now],
-                (err) => {
-                    if (err) reject(err);
-                    else resolve();
-                }
-            );
-        });
-        
-        // Get counts
-        const stats = await new Promise((resolve, reject) => {
-            db.get(
-                `SELECT 
-                    COUNT(*) as totalItems,
-                    SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as activeItems,
-                    SUM(CASE WHEN status = 'taken' THEN 1 ELSE 0 END) as takenItems,
-                    SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expiredItems,
-                    SUM(CASE WHEN status = 'hidden' THEN 1 ELSE 0 END) as hiddenItems
-                FROM items`,
-                [],
-                (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                }
-            );
-        });
+        // Get item stats
+        const statsResult = await pool.query(`
+            SELECT 
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE status = 'active') as active,
+                COUNT(*) FILTER (WHERE status = 'taken') as taken,
+                COUNT(*) FILTER (WHERE status = 'expired') as expired,
+                COUNT(*) FILTER (WHERE status = 'hidden') as hidden
+            FROM items
+        `);
+        const stats = statsResult.rows[0];
         
         // Get reports count
-        const reports = await new Promise((resolve, reject) => {
-            db.get(
-                `SELECT 
-                    COUNT(*) as totalReports,
-                    SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pendingReports
-                FROM reports`,
-                [],
-                (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                }
-            );
-        });
+        const reportsResult = await pool.query(`
+            SELECT 
+                COUNT(*) as total,
+                COUNT(*) FILTER (WHERE status = 'pending') as pending
+            FROM reports
+        `);
+        const reports = reportsResult.rows[0];
         
         // Get users count
-        const users = await new Promise((resolve, reject) => {
-            db.get(
-                'SELECT COUNT(*) as totalUsers FROM users',
-                [],
-                (err, row) => {
-                    if (err) reject(err);
-                    else resolve(row);
-                }
-            );
-        });
+        const usersResult = await pool.query('SELECT COUNT(*) as total FROM users');
+        const users = usersResult.rows[0];
         
         res.json({
-            totalItems: stats.totalItems || 0,
-            activeItems: stats.activeItems || 0,
-            takenItems: stats.takenItems || 0,
-            expiredItems: stats.expiredItems || 0,
-            hiddenItems: stats.hiddenItems || 0,
-            totalReports: reports.totalReports || 0,
-            pendingReports: reports.pendingReports || 0,
-            totalUsers: users.totalUsers || 0
+            totalItems: parseInt(stats.total) || 0,
+            activeItems: parseInt(stats.active) || 0,
+            takenItems: parseInt(stats.taken) || 0,
+            expiredItems: parseInt(stats.expired) || 0,
+            hiddenItems: parseInt(stats.hidden) || 0,
+            totalReports: parseInt(reports.total) || 0,
+            pendingReports: parseInt(reports.pending) || 0,
+            totalUsers: parseInt(users.total) || 0
         });
     } catch (error) {
+        console.error('❌ Analytics error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 module.exports = router;
-

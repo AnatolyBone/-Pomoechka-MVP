@@ -1,7 +1,7 @@
-// routes/auth.js
+// routes/auth.js - PostgreSQL версия
 const express = require('express');
 const router = express.Router();
-const { getDatabase } = require('../db/database');
+const { pool } = require('../db/database');
 const { 
     getTelegramId, 
     getOrCreateUser, 
@@ -22,30 +22,6 @@ function getTelegramUser(req) {
         console.warn('⚠️ Ошибка парсинга X-Telegram-Data');
     }
     return null;
-}
-
-// Валидация токена бота через Telegram API
-async function validateBotToken(token) {
-    try {
-        const https = require('https');
-        return new Promise((resolve) => {
-            https.get(`https://api.telegram.org/bot${token}/getMe`, (res) => {
-                let data = '';
-                res.on('data', chunk => data += chunk);
-                res.on('end', () => {
-                    try {
-                        const json = JSON.parse(data);
-                        console.log('🤖 Проверка токена:', json.ok ? '✅ Валиден' : '❌ Невалиден');
-                        resolve(json.ok === true);
-                    } catch (e) {
-                        resolve(true);
-                    }
-                });
-            }).on('error', () => resolve(true));
-        });
-    } catch (error) {
-        return true;
-    }
 }
 
 // === Роуты ===
@@ -115,7 +91,7 @@ router.get('/me', async (req, res) => {
     }
 });
 
-// POST /api/auth/me - обновить данные пользователя (имя из Telegram)
+// POST /api/auth/me - обновить данные пользователя
 router.post('/me', async (req, res) => {
     const telegramId = getTelegramId(req);
     
@@ -124,66 +100,50 @@ router.post('/me', async (req, res) => {
     }
     
     const { name, username } = req.body;
-    const db = getDatabase();
     
     console.log('📝 POST /auth/me:', { telegramId, name, username });
     
     try {
         // Проверяем существует ли пользователь
-        const existingUser = await new Promise((resolve, reject) => {
-            db.get('SELECT * FROM users WHERE telegram_id = ?', [telegramId], (err, row) => {
-                if (err) return reject(err);
-                resolve(row);
-            });
-        });
+        const existingResult = await pool.query(
+            'SELECT * FROM users WHERE telegram_id = $1', 
+            [telegramId]
+        );
+        const existingUser = existingResult.rows[0];
         
         if (existingUser) {
-            // Обновляем существующего пользователя
-            await new Promise((resolve, reject) => {
-                db.run(
-                    `UPDATE users SET 
-                        name = COALESCE(?, name), 
-                        username = COALESCE(?, username),
-                        updated_at = ?
-                     WHERE telegram_id = ?`,
-                    [name || existingUser.name, username || existingUser.username, Date.now(), telegramId],
-                    function(err) {
-                        if (err) return reject(err);
-                        console.log('✅ Пользователь обновлён:', telegramId);
-                        resolve(this.changes);
-                    }
-                );
-            });
+            // Обновляем существующего
+            await pool.query(
+                `UPDATE users SET 
+                    name = COALESCE($1, name), 
+                    username = COALESCE($2, username),
+                    updated_at = $3
+                 WHERE telegram_id = $4`,
+                [name || existingUser.name, username || existingUser.username, Date.now(), telegramId]
+            );
+            console.log('✅ Пользователь обновлён:', telegramId);
         } else {
-            // Создаём нового пользователя
-            await new Promise((resolve, reject) => {
-                db.run(
-                    `INSERT INTO users (telegram_id, name, username, karma, items_count, created_at, updated_at)
-                     VALUES (?, ?, ?, 0, 0, ?, ?)`,
-                    [telegramId, name || 'Пользователь', username || '', Date.now(), Date.now()],
-                    function(err) {
-                        if (err) return reject(err);
-                        console.log('✅ Пользователь создан:', this.lastID);
-                        resolve(this.lastID);
-                    }
-                );
-            });
+            // Создаём нового
+            await pool.query(
+                `INSERT INTO users (telegram_id, name, username, karma, items_count, created_at, updated_at)
+                 VALUES ($1, $2, $3, 0, 0, $4, $5)`,
+                [telegramId, name || 'Пользователь', username || '', Date.now(), Date.now()]
+            );
+            console.log('✅ Пользователь создан:', telegramId);
         }
         
         // Получаем обновлённого пользователя
-        const user = await new Promise((resolve, reject) => {
-            db.get('SELECT * FROM users WHERE telegram_id = ?', [telegramId], (err, row) => {
-                if (err) return reject(err);
-                resolve(row);
-            });
-        });
+        const userResult = await pool.query(
+            'SELECT * FROM users WHERE telegram_id = $1', 
+            [telegramId]
+        );
+        const user = userResult.rows[0];
         
         const [adminCheck, creatorCheck] = await Promise.all([
             isAdmin(telegramId),
             isCreator(telegramId)
         ]);
         
-        // Формируем ответ с initial для аватара
         const initial = (user.name || 'U').charAt(0).toUpperCase();
         
         res.json({
@@ -220,7 +180,6 @@ router.post('/setup-creator', async (req, res) => {
         const exists = await hasCreator();
         
         if (exists) {
-            // Если создатель уже есть, просто возвращаем успех
             console.log('ℹ️ Создатель уже существует');
             return res.json({ 
                 success: true, 
@@ -229,42 +188,25 @@ router.post('/setup-creator', async (req, res) => {
             });
         }
         
-        // Токен опционален, валидируем только если передан
-        if (botToken && botToken !== 'placeholder:token' && !/^\d+:[A-Za-z0-9_-]+$/.test(botToken)) {
-            console.warn('⚠️ Неверный формат токена, игнорируем');
-        }
-        
-        const db = getDatabase();
-        
         // Создаём/обновляем пользователя
-        const telegramUser = getTelegramUser(req) || { name, username };
-        await getOrCreateUser(telegramId, telegramUser);
+        await getOrCreateUser(telegramId, { name, username });
         
         // Добавляем как создателя
-        await new Promise((resolve, reject) => {
-            db.run(
-                `INSERT OR IGNORE INTO admins (telegram_id, is_creator, created_at) VALUES (?, 1, ?)`,
-                [telegramId, Date.now()],
-                function(err) {
-                    if (err) return reject(err);
-                    resolve(this.lastID);
-                }
-            );
-        });
+        await pool.query(
+            `INSERT INTO admins (telegram_id, is_creator, created_at) 
+             VALUES ($1, 1, $2) 
+             ON CONFLICT (telegram_id) DO UPDATE SET is_creator = 1`,
+            [telegramId, Date.now()]
+        );
         
         // Сохраняем токен если передан
         if (botToken && botToken !== 'placeholder:token') {
-            try {
-                await new Promise((resolve, reject) => {
-                    db.run(
-                        `INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('bot_token', ?, ?)`,
-                        [botToken, Date.now()],
-                        (err) => err ? reject(err) : resolve()
-                    );
-                });
-            } catch (e) {
-                console.warn('⚠️ Не удалось сохранить токен:', e);
-            }
+            await pool.query(
+                `INSERT INTO settings (key, value, updated_at) 
+                 VALUES ('bot_token', $1, $2) 
+                 ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = $2`,
+                [botToken, Date.now()]
+            );
         }
         
         console.log('✅ Создатель настроен:', telegramId);
