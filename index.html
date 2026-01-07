@@ -59,24 +59,25 @@
         
         <div class="flex-1 relative bg-gradient-to-br from-green-100 via-blue-50 to-indigo-100 overflow-hidden touch-none" id="mapArea" style="height: 45vh; min-height: 280px;">
             <div id="mapDraggable" class="absolute" style="width: 200%; height: 200%; left: -50%; top: -50%; transition: none;">
-                <div class="absolute inset-0 opacity-20" style="background-image: repeating-linear-gradient(0deg, #e5e7eb 0px, #e5e7eb 1px, transparent 1px, transparent 50px), repeating-linear-gradient(90deg, #e5e7eb 0px, #e5e7eb 1px, transparent 1px, transparent 50px);"></div>
-                <div id="mapMarkers" class="absolute inset-0"></div>
+                <!-- OpenStreetMap тайлы -->
+                <div id="mapTiles" class="absolute inset-0"></div>
+                <div id="mapMarkers" class="absolute inset-0 z-10"></div>
             </div>
-            <div id="currentLocation" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none">
+            <div id="currentLocation" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
                 <div class="relative">
                     <div class="pulse-ring"></div>
-                    <div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg relative z-10"></div>
+                    <div class="w-5 h-5 bg-blue-500 rounded-full border-3 border-white shadow-lg relative z-10"></div>
                 </div>
             </div>
-            <div id="mapEmpty" class="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+            <div id="mapEmpty" class="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
                 <div class="text-center bg-white/90 backdrop-blur rounded-2xl p-5 mx-4 shadow-lg">
                     <div class="text-4xl mb-2">📍</div>
                     <p class="font-medium text-gray-700 text-sm">Нет находок поблизости</p>
                     <p class="text-xs text-gray-500 mt-1">Станьте первым!</p>
                 </div>
             </div>
-            <!-- Кнопка центрирования -->
-            <button onclick="centerMap()" class="absolute bottom-3 right-3 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-lg z-20 active:bg-gray-100">📍</button>
+            <!-- Кнопка центрирования - перемещена выше кнопки + -->
+            <button onclick="centerMap()" class="absolute top-3 right-3 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-lg z-50 active:bg-gray-100 border-2 border-gray-200">📍</button>
         </div>
         
         <div class="bg-white rounded-t-3xl shadow-lg p-4 pb-20 -mt-4 relative z-10">
@@ -732,12 +733,54 @@ function centerMap() {
         mapDraggable.style.transition = 'none';
     }, 300);
     
-    // Обновляем геолокацию
-    getLocation();
+    // Обновляем геолокацию и карту
+    if (userLocation) {
+        loadMapTiles();
+        renderMap();
+    } else {
+        getLocation();
+    }
 }
 
 // Инициализация при загрузке
 setTimeout(initMapDrag, 100);
+
+// Загрузка карты
+function loadMapTiles() {
+    if (!userLocation) return;
+    
+    var mapTiles = document.getElementById('mapTiles');
+    if (!mapTiles) return;
+    
+    // Используем OpenStreetMap тайлы
+    var zoom = 15;
+    var lat = userLocation.lat;
+    var lon = userLocation.lng;
+    
+    // Рассчитываем тайлы для отображения
+    var n = Math.pow(2, zoom);
+    var tileX = Math.floor((lon + 180) / 360 * n);
+    var tileY = Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * n);
+    
+    mapTiles.innerHTML = '';
+    
+    // Загружаем сетку тайлов 3x3
+    for (var dx = -1; dx <= 1; dx++) {
+        for (var dy = -1; dy <= 1; dy++) {
+            var img = document.createElement('img');
+            var tileUrl = 'https://tile.openstreetmap.org/' + zoom + '/' + (tileX + dx) + '/' + (tileY + dy) + '.png';
+            img.src = tileUrl;
+            img.style.position = 'absolute';
+            img.style.width = '33.33%';
+            img.style.height = '33.33%';
+            img.style.left = (33.33 * (dx + 1)) + '%';
+            img.style.top = (33.33 * (dy + 1)) + '%';
+            img.style.opacity = '0.8';
+            img.style.pointerEvents = 'none';
+            mapTiles.appendChild(img);
+        }
+    }
+}
 
 function renderMap() {
     var container = document.getElementById('mapMarkers');
@@ -746,6 +789,11 @@ function renderMap() {
     
     if (!container) return;
     container.innerHTML = '';
+    
+    // Загружаем тайлы карты
+    if (userLocation) {
+        loadMapTiles();
+    }
     
     if (!allItems || allItems.length === 0) {
         if (emptyEl) emptyEl.classList.remove('hidden');
@@ -759,37 +807,109 @@ function renderMap() {
     allItems.forEach(function(item, index) {
         var marker = document.createElement('div');
         marker.className = 'map-marker absolute cursor-pointer';
+        marker.style.pointerEvents = 'auto';
+        marker.style.zIndex = '20';
+        marker.style.position = 'absolute';
         
         // Центр карты (mapDraggable 200% от mapArea, центр в 50%)
         var centerX = 50;
         var centerY = 50;
         
-        // Распределяем маркеры вокруг центра
-        var angle = (index / allItems.length) * 2 * Math.PI + (item.id * 0.5);
-        var radius = 5 + (index % 3) * 5 + Math.random() * 8;
-        var left = centerX + radius * Math.cos(angle);
-        var top = centerY + radius * Math.sin(angle) * 0.8;
+        // Если у объявления есть координаты, используем их (конвертируем в проценты)
+        var left, top;
+        if (item.latitude && item.longitude && userLocation) {
+            // Простая проекция: считаем что 1% = примерно 0.01 градуса
+            var latDiff = (item.latitude - userLocation.lat) * 1000; // масштаб
+            var lonDiff = (item.longitude - userLocation.lng) * 1000;
+            left = centerX + lonDiff * 0.5;
+            top = centerY - latDiff * 0.5;
+        } else {
+            // Распределяем маркеры вокруг центра
+            var angle = (index / allItems.length) * 2 * Math.PI + (item.id * 0.5);
+            var radius = 5 + (index % 3) * 5 + Math.random() * 8;
+            left = centerX + radius * Math.cos(angle);
+            top = centerY + radius * Math.sin(angle) * 0.8;
+        }
         
         marker.style.left = Math.max(30, Math.min(70, left)) + '%';
         marker.style.top = Math.max(30, Math.min(70, top)) + '%';
         marker.style.transform = 'translate(-50%, -50%)';
-        marker.style.zIndex = '10';
-        marker.innerHTML = '<div class="text-2xl drop-shadow-lg hover:scale-125 transition-transform active:scale-150" onclick="showItemOnMap(' + item.id + ')">' + getCategoryEmoji(item.category) + '</div>';
         
+        // Создаём кликабельный маркер
+        var markerDiv = document.createElement('div');
+        markerDiv.className = 'text-2xl drop-shadow-lg transition-transform active:scale-150';
+        markerDiv.style.pointerEvents = 'auto';
+        markerDiv.style.cursor = 'pointer';
+        markerDiv.style.userSelect = 'none';
+        markerDiv.innerHTML = getCategoryEmoji(item.category);
+        markerDiv.onclick = function(e) {
+            e.stopPropagation();
+            showItemOnMap(item.id);
+        };
+        
+        marker.appendChild(markerDiv);
         container.appendChild(marker);
     });
 }
 
 function showItemOnMap(itemId) {
-    var item = allItems.find(function(i) { return i.id === itemId; });
-    if (!item) return;
+    console.log('📍 Клик по маркеру:', itemId);
+    var item = allItems.find(function(i) { 
+        return i.id === itemId || i.id === parseInt(itemId); 
+    });
+    if (!item) {
+        console.warn('⚠️ Объявление не найдено:', itemId);
+        return;
+    }
     
+    console.log('✅ Найдено объявление:', item);
     selectedMapItem = item;
-    document.getElementById('mapItemsCount').innerHTML = 
-        '<strong>' + escapeHtml(item.title) + '</strong><br>' +
-        '<span class="text-xs text-gray-500">' + escapeHtml(item.description || '') + '</span><br>' +
-        '<button onclick="openMapForItem()" class="mt-2 px-4 py-1 bg-emerald-500 text-white rounded-full text-xs">📍 Открыть на карте</button>' +
-        '<button onclick="markAsTaken(' + item.id + ')" class="mt-2 ml-2 px-4 py-1 bg-gray-200 rounded-full text-xs">Забрал ✓</button>';
+    
+    // Показываем детали внизу карты
+    var countEl = document.getElementById('mapItemsCount');
+    if (countEl) {
+        countEl.innerHTML = 
+            '<div class="bg-emerald-50 rounded-lg p-3 mb-2 border border-emerald-200">' +
+            '<strong class="text-emerald-900 block mb-1">' + escapeHtml(item.title) + '</strong>' +
+            '<p class="text-xs text-emerald-700 mb-2">' + escapeHtml(item.description || 'Без описания') + '</p>' +
+            '<div class="flex gap-2 flex-wrap">' +
+            '<button onclick="showItemDetail(' + item.id + ')" class="px-3 py-1 bg-emerald-500 text-white rounded-full text-xs font-medium active:bg-emerald-600">📖 Подробнее</button>' +
+            '<button onclick="openMapForItem()" class="px-3 py-1 bg-blue-500 text-white rounded-full text-xs font-medium active:bg-blue-600">📍 Карты</button>' +
+            '<button onclick="markAsTaken(' + item.id + ')" class="px-3 py-1 bg-gray-300 text-gray-700 rounded-full text-xs font-medium active:bg-gray-400">✓ Забрал</button>' +
+            '</div>' +
+            '</div>' +
+            '<p class="text-xs text-gray-500 text-center">Всего: ' + allItems.length + ' ' + pluralize(allItems.length, 'находка', 'находки', 'находок') + '</p>';
+    }
+    
+    // Показываем детали при клике
+    showMapItemDetail(item);
+}
+
+function showMapItemDetail(item) {
+    // Простое модальное окно с деталями
+    var modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black/50 z-50 flex items-end';
+    modal.onclick = function(e) {
+        if (e.target === modal) modal.remove();
+    };
+    
+    modal.innerHTML = `
+        <div class="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto" onclick="event.stopPropagation()">
+            <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-4"></div>
+            <div class="px-4 pb-6">
+                <h2 class="text-xl font-bold mb-2">${escapeHtml(item.title)}</h2>
+                ${item.photo_url ? `<img src="${item.photo_url}" class="w-full rounded-xl mb-3" style="max-height: 200px; object-fit: cover;">` : ''}
+                <p class="text-gray-600 mb-4">${escapeHtml(item.description || 'Без описания')}</p>
+                <div class="flex gap-2 mb-4">
+                    <button onclick="openMapForItem()" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium">📍 Открыть на карте</button>
+                    <button onclick="markAsTaken(${item.id}); this.closest('.fixed').remove();" class="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium">✓ Забрал</button>
+                </div>
+                <button onclick="this.closest('.fixed').remove()" class="w-full py-2 text-gray-500">Закрыть</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
 }
 
 function openMapForItem() {
