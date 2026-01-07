@@ -422,7 +422,8 @@
         
         // Хелпер для получения заголовков API
         API.getHeaders = function() {
-            const userId = ENV.getUserId();
+            // Используем сохранённый userId или пробуем ENV
+            const userId = window._adminUserId || ENV.getUserId();
             return {
                 'Content-Type': 'application/json',
                 'X-Telegram-ID': userId ? String(userId) : ''
@@ -433,6 +434,32 @@
         document.addEventListener('DOMContentLoaded', async () => {
             await checkAuth();
         });
+        
+        // Получаем пользователя из разных источников
+        function getTelegramUser() {
+            // 1. Сначала пробуем Telegram WebApp
+            if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+                console.log('📱 User from Telegram WebApp');
+                return window.Telegram.WebApp.initDataUnsafe.user;
+            }
+            
+            // 2. Пробуем sessionStorage (передано из index.html)
+            try {
+                const stored = sessionStorage.getItem('pomoechka_telegram_user');
+                if (stored) {
+                    console.log('💾 User from sessionStorage');
+                    return JSON.parse(stored);
+                }
+            } catch (e) {}
+            
+            // 3. Для разработки
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                console.log('🔧 Dev mode user');
+                return { id: 'dev', first_name: 'Dev' };
+            }
+            
+            return null;
+        }
         
         // === Authentication ===
         async function checkAuth() {
@@ -447,29 +474,20 @@
                 Telegram.WebApp.expand();
             }
             
-            // Проверяем, запущено ли в Telegram
-            if (!ENV.isTelegram()) {
-                authStatus.classList.add('hidden');
-                authNotTelegram.classList.remove('hidden');
-                
-                // Для разработки: разрешаем доступ в браузере
-                if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                    console.log('🔧 Dev mode: bypassing auth');
-                    setTimeout(() => {
-                        showAdminPanel({ first_name: 'Dev', id: 'dev' }, true);
-                    }, 1000);
-                }
-                return;
-            }
+            // Получаем пользователя
+            const user = getTelegramUser();
+            const userId = user?.id;
             
-            const user = ENV.getUser();
-            const userId = ENV.getUserId();
+            console.log('🔍 Admin auth check, user:', user);
             
             if (!user || !userId) {
                 authStatus.classList.add('hidden');
-                authError.classList.remove('hidden');
+                authNotTelegram.classList.remove('hidden');
                 return;
             }
+            
+            // Сохраняем userId для API вызовов
+            window._adminUserId = String(userId);
             
             console.log('🔍 Checking auth for user:', userId);
             
@@ -518,11 +536,16 @@
         }
         
         async function setupCreator() {
-            const userId = ENV.getUserId();
-            const user = ENV.getUser();
+            const user = getTelegramUser();
+            const userId = window._adminUserId || user?.id;
             const botToken = document.getElementById('setupBotToken')?.value?.trim() || 'placeholder:token';
             
             console.log('🔧 Setting up creator:', userId);
+            
+            if (!userId) {
+                alert('Ошибка: не удалось получить Telegram ID');
+                return;
+            }
             
             try {
                 const response = await fetch(`${CONFIG.API_URL}/api/auth/setup-creator`, {
@@ -533,8 +556,8 @@
                     },
                     body: JSON.stringify({
                         botToken: botToken,
-                        name: user.first_name,
-                        username: user.username
+                        name: user?.first_name || 'Admin',
+                        username: user?.username || ''
                     })
                 });
                 
@@ -542,7 +565,7 @@
                 console.log('✅ Setup result:', result);
                 
                 if (result.success || result.alreadyExists) {
-                    showAdminPanel(user, true);
+                    showAdminPanel(user || { first_name: 'Admin', id: userId }, true);
                 } else {
                     alert('Ошибка: ' + (result.error || 'Не удалось настроить создателя'));
                 }

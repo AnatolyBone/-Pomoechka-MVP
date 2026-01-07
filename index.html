@@ -607,24 +607,27 @@ function renderMap() {
     container.innerHTML = '';
     
     if (!allItems || allItems.length === 0) {
-        emptyEl.classList.remove('hidden');
-        countEl.textContent = 'Нет находок поблизости';
+        if (emptyEl) emptyEl.classList.remove('hidden');
+        if (countEl) countEl.innerHTML = '<span class="text-gray-500">Пока нет находок поблизости</span><br><span class="text-xs text-emerald-600">Станьте первым! Нажмите + чтобы добавить</span>';
         return;
     }
     
-    emptyEl.classList.add('hidden');
-    countEl.textContent = allItems.length + ' ' + pluralize(allItems.length, 'находка', 'находки', 'находок');
+    if (emptyEl) emptyEl.classList.add('hidden');
+    if (countEl) countEl.textContent = allItems.length + ' ' + pluralize(allItems.length, 'находка', 'находки', 'находок') + ' рядом';
     
-    allItems.forEach(function(item) {
+    allItems.forEach(function(item, index) {
         var marker = document.createElement('div');
-        marker.className = 'map-marker';
+        marker.className = 'map-marker cursor-pointer';
         
-        var left = 15 + Math.random() * 70;
-        var top = 15 + Math.random() * 50;
+        // Распределяем маркеры более равномерно
+        var angle = (index / allItems.length) * 2 * Math.PI;
+        var radius = 20 + Math.random() * 25;
+        var left = 50 + radius * Math.cos(angle);
+        var top = 40 + radius * Math.sin(angle) * 0.7;
         
-        marker.style.left = left + '%';
-        marker.style.top = top + '%';
-        marker.innerHTML = '<div class="text-3xl drop-shadow-lg" onclick="showItemOnMap(' + item.id + ')">' + getCategoryEmoji(item.category) + '</div>';
+        marker.style.left = Math.max(10, Math.min(90, left)) + '%';
+        marker.style.top = Math.max(10, Math.min(70, top)) + '%';
+        marker.innerHTML = '<div class="text-3xl drop-shadow-lg hover:scale-125 transition-transform" onclick="showItemOnMap(' + item.id + ')">' + getCategoryEmoji(item.category) + '</div>';
         
         container.appendChild(marker);
     });
@@ -846,7 +849,13 @@ async function setupCreator() {
 function closeCreatorModal() { document.getElementById('creatorModal').classList.add('hidden'); }
 function closeMapModal() { document.getElementById('mapProviderModal').classList.add('hidden'); }
 function closeSuccessModal() { document.getElementById('successModal').classList.add('hidden'); showScreen('feed'); }
-function openAdminPanel() { window.location.href = 'admin.html'; }
+function openAdminPanel() { 
+    // Сохраняем данные пользователя для админ-панели
+    if (currentUser) {
+        sessionStorage.setItem('pomoechka_telegram_user', JSON.stringify(currentUser));
+    }
+    window.location.href = 'admin.html'; 
+}
 
 // ============================================
 // УТИЛИТЫ
