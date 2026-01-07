@@ -16,42 +16,71 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        * { font-family: 'Inter', sans-serif; }
+        * { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+        html { font-size: 14px; }
         body { overflow-x: hidden; }
+        
+        /* Sidebar - по умолчанию скрыт на мобильных */
         .sidebar { 
             transition: transform 0.3s ease; 
-            width: 256px;
-            min-width: 256px;
+            width: 220px;
+            min-width: 220px;
+            transform: translateX(-100%);
         }
-        .sidebar.collapsed { transform: translateX(-100%); }
-        @media (min-width: 1024px) {
+        .sidebar.open { transform: translateX(0); }
+        
+        /* Overlay для мобильного меню */
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 40;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .sidebar-overlay.open {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        /* На десктопе показываем sidebar */
+        @media (min-width: 768px) {
             .sidebar { transform: translateX(0) !important; }
+            .sidebar-overlay { display: none !important; }
+            .main-content { margin-left: 220px; }
         }
-        @media (max-width: 1023px) {
-            .sidebar { 
-                position: fixed;
-                z-index: 50;
-            }
-            .main-content { margin-left: 0 !important; }
-        }
-        @media (min-width: 1024px) {
-            .main-content { margin-left: 256px; }
-        }
+        
+        /* Компактные стили для мобильных */
         .stat-card { transition: all 0.2s ease; }
-        .stat-card:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(0,0,0,0.1); }
-        .status-badge { padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; display: inline-block; }
+        .stat-card p.text-3xl { font-size: 1.5rem; }
+        .status-badge { padding: 2px 8px; border-radius: 9999px; font-size: 11px; font-weight: 600; display: inline-block; }
         .status-active { background: #d1fae5; color: #065f46; }
         .status-taken { background: #e0e7ff; color: #3730a3; }
         .status-expired { background: #fef3c7; color: #92400e; }
         .status-pending { background: #fef3c7; color: #92400e; }
         .status-resolved { background: #d1fae5; color: #065f46; }
         .status-hidden { background: #fee2e2; color: #991b1b; }
-        /* Фикс для мобильных */
-        .nav-link { display: flex; align-items: center; gap: 12px; }
+        
+        .nav-link { display: flex; align-items: center; gap: 10px; font-size: 13px; }
         .hidden { display: none !important; }
+        
+        /* Компактные отступы */
+        .p-6 { padding: 1rem; }
+        .gap-6 { gap: 0.75rem; }
+        .mb-8 { margin-bottom: 1rem; }
+        .rounded-2xl { border-radius: 1rem; }
+        
         /* Таблица */
-        table { width: 100%; border-collapse: collapse; }
-        th, td { text-align: left; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { text-align: left; padding: 8px 4px; }
+        
+        /* Header компактнее */
+        header h2 { font-size: 1rem; }
+        
+        /* Карточки статистики */
+        .stat-card { padding: 0.75rem; }
+        .stat-card span.text-3xl { font-size: 1.5rem; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -101,8 +130,11 @@
     <!-- Admin Panel (hidden until authenticated) -->
     <div id="adminPanel" class="hidden">
         
+        <!-- Overlay для мобильного меню -->
+        <div id="sidebarOverlay" class="sidebar-overlay" onclick="closeSidebar()"></div>
+        
         <!-- Sidebar -->
-        <aside id="sidebar" class="sidebar fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white lg:translate-x-0">
+        <aside id="sidebar" class="sidebar fixed inset-y-0 left-0 z-50 bg-gray-900 text-white">
             <div class="flex items-center gap-3 p-6 border-b border-gray-800">
                 <span class="text-3xl">🗑️</span>
                 <div>
@@ -122,18 +154,18 @@
                 </div>
             </div>
             
-            <nav class="p-4 space-y-1">
-                <a href="#dashboard" onclick="showSection('dashboard')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg bg-emerald-600 text-white">
+            <nav class="p-3 space-y-1">
+                <a href="#dashboard" onclick="showSection('dashboard'); closeSidebar();" class="nav-link px-3 py-2 rounded-lg bg-emerald-600 text-white">
                     <span>📊</span> Дашборд
                 </a>
-                <a href="#items" onclick="showSection('items')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white">
+                <a href="#items" onclick="showSection('items'); closeSidebar();" class="nav-link px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">
                     <span>📦</span> Объявления
                 </a>
-                <a href="#reports" onclick="showSection('reports')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white">
+                <a href="#reports" onclick="showSection('reports'); closeSidebar();" class="nav-link px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">
                     <span>⚠️</span> Жалобы
                     <span id="reportsBadge" class="ml-auto bg-red-500 text-white text-xs px-2 py-0.5 rounded-full hidden">0</span>
                 </a>
-                <a href="#settings" onclick="showSection('settings')" class="nav-link flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white">
+                <a href="#settings" onclick="showSection('settings'); closeSidebar();" class="nav-link px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800">
                     <span>⚙️</span> Настройки
                 </a>
             </nav>
@@ -706,7 +738,13 @@
         }
         
         function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('collapsed');
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebarOverlay').classList.toggle('open');
+        }
+        
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('sidebarOverlay').classList.remove('open');
         }
         
         // === Dashboard ===

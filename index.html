@@ -246,6 +246,11 @@
             
             <button id="adminPanelBtn" class="hidden w-full bg-purple-500 hover:bg-purple-600 text-white p-4 rounded-xl font-semibold flex items-center justify-center gap-2" onclick="openAdminPanel()">⚙️ Админ-панель</button>
             
+            <!-- Кнопка поддержки -->
+            <button onclick="openSupportModal()" class="w-full bg-white hover:bg-gray-50 text-gray-700 p-4 rounded-xl font-medium flex items-center justify-center gap-2 shadow-sm border border-gray-200">
+                💬 Связаться с поддержкой
+            </button>
+            
             <div class="bg-white rounded-xl p-4 shadow-sm">
                 <h3 class="font-bold text-gray-800 mb-3">📦 Мои объявления</h3>
                 <div id="myItems" class="space-y-2">
@@ -290,6 +295,52 @@
         <h2 class="text-xl font-bold text-gray-800 mb-2">Опубликовано!</h2>
         <p class="text-gray-600 mb-4">+10 кармы получено</p>
         <button onclick="closeSuccessModal()" class="w-full bg-emerald-500 text-white py-3 rounded-lg font-semibold">Отлично!</button>
+    </div>
+</div>
+
+<!-- Support Modal -->
+<div id="supportModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <div class="text-center mb-4">
+            <div class="text-4xl mb-2">💬</div>
+            <h2 class="text-xl font-bold text-gray-800">Поддержка</h2>
+        </div>
+        <div class="space-y-3">
+            <a href="https://t.me/pomoechka_support" target="_blank" class="block w-full p-4 bg-blue-500 text-white rounded-xl text-center font-semibold hover:bg-blue-600">
+                📱 Написать в Telegram
+            </a>
+            <button onclick="openReportModal()" class="w-full p-4 bg-red-50 text-red-600 rounded-xl font-semibold hover:bg-red-100">
+                ⚠️ Пожаловаться на объявление
+            </button>
+            <div class="text-center text-gray-500 text-sm pt-2">
+                <p>Вопросы и предложения:</p>
+                <a href="mailto:support@pomoechka.ru" class="text-emerald-600">support@pomoechka.ru</a>
+            </div>
+        </div>
+        <button onclick="closeSupportModal()" class="w-full py-2 text-gray-500 mt-4">Закрыть</button>
+    </div>
+</div>
+
+<!-- Report Modal -->
+<div id="reportModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+        <div class="text-center mb-4">
+            <div class="text-4xl mb-2">⚠️</div>
+            <h2 class="text-xl font-bold text-gray-800">Жалоба</h2>
+            <p class="text-gray-500 text-sm">Опишите проблему</p>
+        </div>
+        <input id="reportItemId" type="text" placeholder="ID объявления (если есть)" class="w-full p-3 border border-gray-300 rounded-lg mb-3">
+        <select id="reportReason" class="w-full p-3 border border-gray-300 rounded-lg mb-3">
+            <option value="">Выберите причину</option>
+            <option value="spam">🚫 Спам / реклама</option>
+            <option value="inappropriate">⛔ Неприемлемый контент</option>
+            <option value="fake">❌ Фейковое объявление</option>
+            <option value="taken">✅ Уже забрали</option>
+            <option value="other">❓ Другое</option>
+        </select>
+        <textarea id="reportText" placeholder="Дополнительная информация..." class="w-full p-3 border border-gray-300 rounded-lg mb-4 h-24 resize-none"></textarea>
+        <button onclick="submitReport()" class="w-full bg-red-500 text-white py-3 rounded-lg font-semibold hover:bg-red-600">Отправить жалобу</button>
+        <button onclick="closeReportModal()" class="w-full py-2 text-gray-500 mt-2">Отмена</button>
     </div>
 </div>
 
@@ -850,6 +901,53 @@ async function setupCreator() {
 function closeCreatorModal() { document.getElementById('creatorModal').classList.add('hidden'); }
 function closeMapModal() { document.getElementById('mapProviderModal').classList.add('hidden'); }
 function closeSuccessModal() { document.getElementById('successModal').classList.add('hidden'); showScreen('feed'); }
+
+// Модальные окна поддержки
+function openSupportModal() { document.getElementById('supportModal').classList.remove('hidden'); }
+function closeSupportModal() { document.getElementById('supportModal').classList.add('hidden'); }
+function openReportModal() { 
+    closeSupportModal();
+    document.getElementById('reportModal').classList.remove('hidden'); 
+}
+function closeReportModal() { document.getElementById('reportModal').classList.add('hidden'); }
+
+async function submitReport() {
+    var itemId = document.getElementById('reportItemId').value;
+    var reason = document.getElementById('reportReason').value;
+    var text = document.getElementById('reportText').value;
+    
+    if (!reason) {
+        alert('Выберите причину жалобы');
+        return;
+    }
+    
+    try {
+        var response = await fetch(CONFIG.API_URL + '/api/reports', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Telegram-ID': API.userId || ''
+            },
+            body: JSON.stringify({
+                item_id: itemId || 0,
+                reason: reason + (text ? ': ' + text : '')
+            })
+        });
+        
+        if (response.ok) {
+            alert('✅ Жалоба отправлена! Спасибо за обратную связь.');
+            closeReportModal();
+            document.getElementById('reportItemId').value = '';
+            document.getElementById('reportReason').value = '';
+            document.getElementById('reportText').value = '';
+        } else {
+            alert('Ошибка отправки. Попробуйте позже.');
+        }
+    } catch (e) {
+        console.error('Report error:', e);
+        alert('Ошибка сети. Попробуйте позже.');
+    }
+}
 function openAdminPanel() { 
     // Передаём данные пользователя через URL (безопаснее чем sessionStorage в WebView)
     if (currentUser) {
