@@ -11,20 +11,13 @@
   to = "https://pomoechka-mvp.onrender.com/api/:splat"
   status = 200
   force = true
-  headers = {X-From = "netlify"}
 
-# Проксирование health check
+# Проксирование health check  
 [[redirects]]
   from = "/health"
   to = "https://pomoechka-mvp.onrender.com/health"
   status = 200
   force = true
-
-# Перенаправления для SPA (должно быть последним!)
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
 
 # Заголовки безопасности
 [[headers]]
