@@ -5,7 +5,22 @@
   command = "node scripts/inject-env.js"
   publish = "."
 
-# Перенаправления для SPA (если нужно)
+# Проксирование API запросов на Render backend
+[[redirects]]
+  from = "/api/*"
+  to = "https://pomoechka-mvp.onrender.com/api/:splat"
+  status = 200
+  force = true
+  headers = {X-From = "netlify"}
+
+# Проксирование health check
+[[redirects]]
+  from = "/health"
+  to = "https://pomoechka-mvp.onrender.com/health"
+  status = 200
+  force = true
+
+# Перенаправления для SPA (должно быть последним!)
 [[redirects]]
   from = "/*"
   to = "/index.html"

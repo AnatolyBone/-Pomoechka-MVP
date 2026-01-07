@@ -409,17 +409,15 @@
 
     <script src="js/config.js"></script>
     <script>
-        // Убеждаемся что API_URL установлен
-        if (!CONFIG.API_URL) {
-            CONFIG.API_URL = 'https://pomoechka-mvp.onrender.com';
-        }
-        console.log('✅ Admin CONFIG.API_URL:', CONFIG.API_URL);
+        // На Netlify используем прокси (пустой URL = относительный путь)
+        // API_URL уже настроен в config.js
+        console.log('✅ Admin CONFIG.API_URL:', CONFIG.API_URL || '(proxy через Netlify)');
         
-        // Переопределяем hasBackend для корректной работы
-        window.hasBackend = () => !!CONFIG.API_URL;
+        // Переопределяем hasBackend - теперь всегда true, т.к. используем прокси
+        window.hasBackend = () => true;
         
-        // Тестовый запрос для проверки CORS
-        fetch(CONFIG.API_URL + '/health')
+        // Тестовый запрос для проверки соединения
+        fetch((CONFIG.API_URL || '') + '/health')
             .then(r => r.json())
             .then(d => console.log('✅ Health check OK:', d))
             .catch(e => console.error('❌ Health check failed:', e));
