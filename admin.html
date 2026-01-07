@@ -767,8 +767,16 @@
                 }
                 
                 // Load recent items
-                const items = await API.getItems({});
-                renderRecentItems(items.slice(0, 5));
+                try {
+                    const itemsResponse = await fetch(`${CONFIG.API_URL}/api/admin/items?limit=5`, {
+                        headers: API.getHeaders()
+                    });
+                    const items = itemsResponse.ok ? await itemsResponse.json() : [];
+                    renderRecentItems((items || []).slice(0, 5));
+                } catch (e) {
+                    console.error('Recent items error:', e);
+                    renderRecentItems([]);
+                }
                 
                 // Render charts
                 renderCharts(analytics, items);
@@ -843,79 +851,186 @@
         // === Items ===
         async function loadItems() {
             try {
-                const items = await API.getItems({});
-                renderItemsTable(items);
+                // Используем админский endpoint для получения всех объявлений
+                const response = await fetch(`${CONFIG.API_URL}/api/admin/items`, {
+                    headers: API.getHeaders()
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const items = await response.json();
+                console.log('✅ Loaded items:', items.length);
+                renderItemsTable(items || []);
             } catch (e) {
-                console.error('Items error:', e);
+                console.error('❌ Items error:', e);
+                renderItemsTable([]);
+                // Показываем ошибку пользователю
+                const tbody = document.getElementById('itemsTableBody');
+                if (tbody) {
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Ошибка загрузки: ${e.message}</td></tr>`;
+                }
             }
         }
         
         function renderItemsTable(items) {
             const tbody = document.getElementById('itemsTableBody');
+            if (!tbody) return;
+            
             if (items.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">Нет объявлений</td></tr>';
                 return;
             }
             
-            tbody.innerHTML = items.map(item => `
+            // Получаем категории для эмодзи
+            function getCategoryEmoji(category) {
+                const emojis = {
+                    'food': '🍕',
+                    'clothes': '👕',
+                    'electronics': '📱',
+                    'furniture': '🪑',
+                    'books': '📚',
+                    'toys': '🧸',
+                    'other': '📦'
+                };
+                return emojis[category] || '📦';
+            }
+            
+            tbody.innerHTML = items.map(item => {
+                const category = item.category || 'other';
+                const emoji = getCategoryEmoji(category);
+                const title = escapeHtml(item.title || 'Без названия');
+                const address = escapeHtml(item.address || 'Адрес не указан');
+                const status = item.status || 'active';
+                const reportsCount = item.reports_count || 0;
+                const createdAt = item.created_at || item.createdAt;
+                const telegramId = item.telegram_id || '';
+                
+                return `
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
-                    <td class="px-6 py-4">
-                        <div class="flex items-center gap-3">
-                            <span class="text-2xl">${item.emoji || '📦'}</span>
-                            <div>
-                                <p class="font-medium text-gray-800">${escapeHtml(item.title)}</p>
-                                <p class="text-sm text-gray-500">${escapeHtml(item.location?.address || '')}</p>
+                    <td class="px-4 py-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xl">${emoji}</span>
+                            <div class="min-w-0 flex-1">
+                                <p class="font-medium text-gray-800 text-sm truncate">${title}</p>
+                                <p class="text-xs text-gray-500 truncate">${address}</p>
                             </div>
                         </div>
                     </td>
-                    <td class="px-6 py-4">
-                        <span class="text-sm">${escapeHtml(item.author?.name || 'Аноним')}</span>
+                    <td class="px-4 py-3">
+                        <span class="text-xs text-gray-600" title="Telegram ID: ${telegramId}">${telegramId ? 'ID:' + telegramId.slice(-4) : '—'}</span>
                     </td>
-                    <td class="px-6 py-4">
-                        <span class="status-badge status-${item.status}">${getStatusText(item.status)}</span>
+                    <td class="px-4 py-3">
+                        <span class="status-badge status-${status}">${getStatusText(status)}</span>
                     </td>
-                    <td class="px-6 py-4">
-                        <span class="text-sm ${item.reports > 0 ? 'text-red-600 font-semibold' : 'text-gray-500'}">${item.reports || 0}</span>
+                    <td class="px-4 py-3">
+                        <span class="text-xs ${reportsCount > 0 ? 'text-red-600 font-semibold' : 'text-gray-500'}">${reportsCount}</span>
                     </td>
-                    <td class="px-6 py-4 text-sm text-gray-500">${formatDate(item.createdAt)}</td>
-                    <td class="px-6 py-4">
-                        <div class="flex gap-2">
-                            ${item.status === 'hidden' ? `<button onclick="unhideItem(${item.id})" class="p-2 text-green-600 hover:bg-green-50 rounded-lg" title="Восстановить">✅</button>` : ''}
-                            ${item.status !== 'hidden' ? `<button onclick="hideItem(${item.id})" class="p-2 text-amber-600 hover:bg-amber-50 rounded-lg" title="Скрыть">🚫</button>` : ''}
-                            <button onclick="deleteItem(${item.id})" class="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Удалить">🗑️</button>
+                    <td class="px-4 py-3 text-xs text-gray-500">
+                        ${formatDate(createdAt)}
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex gap-1">
+                            ${status === 'hidden' ? `<button onclick="unhideItem(${item.id})" class="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Восстановить">✅</button>` : ''}
+                            ${status !== 'hidden' ? `<button onclick="hideItem(${item.id})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded" title="Скрыть">🚫</button>` : ''}
+                            <button onclick="deleteItem(${item.id})" class="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Удалить">🗑️</button>
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `;
+            }).join('');
         }
         
         async function filterItems() {
             const search = document.getElementById('itemSearch')?.value || '';
             const status = document.getElementById('itemStatus')?.value || '';
             
-            const items = await API.getItems({ search, status: status || undefined });
-            renderItemsTable(items);
+            try {
+                let url = `${CONFIG.API_URL}/api/admin/items`;
+                const params = new URLSearchParams();
+                if (status) params.append('status', status);
+                if (params.toString()) url += '?' + params.toString();
+                
+                const response = await fetch(url, {
+                    headers: API.getHeaders()
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                let items = await response.json();
+                
+                // Клиентская фильтрация по поиску (так как поиск не реализован на бэкенде)
+                if (search) {
+                    const searchLower = search.toLowerCase();
+                    items = items.filter(item => 
+                        item.title?.toLowerCase().includes(searchLower) ||
+                        item.description?.toLowerCase().includes(searchLower) ||
+                        item.address?.toLowerCase().includes(searchLower)
+                    );
+                }
+                
+                renderItemsTable(items || []);
+            } catch (e) {
+                console.error('Filter error:', e);
+                renderItemsTable([]);
+            }
         }
         
         async function hideItem(id) {
-            if (confirm('Скрыть это объявление?')) {
-                await API.updateItem(id, { status: 'hidden' });
-                loadItems();
-                loadDashboard();
+            if (!confirm('Скрыть это объявление?')) return;
+            
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/api/admin/items/${id}`, {
+                    method: 'PATCH',
+                    headers: API.getHeaders(),
+                    body: JSON.stringify({ status: 'hidden' })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                await loadItems();
+                await loadDashboard();
+            } catch (e) {
+                console.error('Hide item error:', e);
+                alert('Ошибка: ' + e.message);
             }
         }
         
         async function unhideItem(id) {
-            await API.updateItem(id, { status: 'active' });
-            loadItems();
-            loadDashboard();
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/api/admin/items/${id}`, {
+                    method: 'PATCH',
+                    headers: API.getHeaders(),
+                    body: JSON.stringify({ status: 'active' })
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                await loadItems();
+                await loadDashboard();
+            } catch (e) {
+                console.error('Unhide item error:', e);
+                alert('Ошибка: ' + e.message);
+            }
         }
         
         async function deleteItem(id) {
-            if (confirm('Удалить это объявление навсегда?')) {
-                await API.deleteItem(id);
-                loadItems();
-                loadDashboard();
+            if (!confirm('Удалить это объявление навсегда?')) return;
+            
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/api/admin/items/${id}`, {
+                    method: 'DELETE',
+                    headers: API.getHeaders()
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                await loadItems();
+                await loadDashboard();
+            } catch (e) {
+                console.error('Delete item error:', e);
+                alert('Ошибка: ' + e.message);
             }
         }
         
@@ -1081,16 +1196,33 @@
         async function clearExpired() {
             if (!confirm('Удалить все просроченные объявления?')) return;
             
-            const items = await API.getItems({});
-            for (const item of items) {
-                if (item.status === 'expired') {
-                    await API.deleteItem(item.id);
+            try {
+                const response = await fetch(`${CONFIG.API_URL}/api/admin/items?status=expired`, {
+                    headers: API.getHeaders()
+                });
+                
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const items = await response.json();
+                
+                for (const item of items || []) {
+                    const deleteResponse = await fetch(`${CONFIG.API_URL}/api/admin/items/${item.id}`, {
+                        method: 'DELETE',
+                        headers: API.getHeaders()
+                    });
+                    
+                    if (!deleteResponse.ok) {
+                        console.warn('Failed to delete item:', item.id);
+                    }
                 }
+                
+                await loadItems();
+                await loadDashboard();
+                alert('Просроченные объявления удалены');
+            } catch (e) {
+                console.error('Clear expired error:', e);
+                alert('Ошибка: ' + e.message);
             }
-            
-            loadItems();
-            loadDashboard();
-            alert('Просроченные объявления удалены');
         }
         
         function exportAllData() {
