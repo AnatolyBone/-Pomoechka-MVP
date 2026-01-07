@@ -413,15 +413,15 @@
 
     <script src="js/config.js"></script>
     <script>
-        // На Netlify используем прокси (пустой URL = относительный путь)
-        // API_URL уже настроен в config.js
-        console.log('✅ Admin CONFIG.API_URL:', CONFIG.API_URL || '(proxy через Netlify)');
+        // Принудительно устанавливаем пустой URL для прокси через Netlify
+        CONFIG.API_URL = '';
+        console.log('✅ Admin CONFIG: proxy через Netlify');
         
-        // Переопределяем hasBackend - теперь всегда true, т.к. используем прокси
+        // Переопределяем hasBackend - всегда true, используем прокси
         window.hasBackend = () => true;
         
         // Тестовый запрос для проверки соединения
-        fetch((CONFIG.API_URL || '') + '/health')
+        fetch('/health')
             .then(r => r.json())
             .then(d => console.log('✅ Health check OK:', d))
             .catch(e => console.error('❌ Health check failed:', e));
@@ -526,16 +526,13 @@
             window._adminUserId = String(userId);
             
             console.log('🔍 Checking auth for user:', userId);
-            console.log('🌐 API URL:', CONFIG.API_URL);
+            console.log('🌐 Using Netlify proxy');
             
-            // Проверяем через API с бэкенда
+            // Проверяем через API с бэкенда (через прокси Netlify)
             try {
-                // Сначала проверим доступность API
-                console.log('🔌 Testing API connection to:', CONFIG.API_URL);
-                
                 // Проверяем права текущего пользователя
                 console.log('📤 Fetching check-admin...');
-                const adminCheck = await fetch(`${CONFIG.API_URL}/api/auth/check-admin`, {
+                const adminCheck = await fetch('/api/auth/check-admin', {
                     method: 'GET',
                     headers: { 
                         'X-Telegram-ID': String(userId),
@@ -561,7 +558,7 @@
                 
                 // Проверяем, есть ли создатель в системе
                 console.log('📤 Fetching check-creator...');
-                const creatorCheck = await fetch(`${CONFIG.API_URL}/api/auth/check-creator`, {
+                const creatorCheck = await fetch('/api/auth/check-creator', {
                     method: 'GET',
                     headers: { 
                         'X-Telegram-ID': String(userId),
@@ -596,7 +593,7 @@
                 try {
                     const result = await new Promise((resolve, reject) => {
                         const xhr = new XMLHttpRequest();
-                        xhr.open('GET', `${CONFIG.API_URL}/api/auth/check-admin`);
+                        xhr.open('GET', '/api/auth/check-admin');
                         xhr.setRequestHeader('X-Telegram-ID', String(userId));
                         xhr.setRequestHeader('Accept', 'application/json');
                         xhr.onload = () => {
@@ -640,7 +637,7 @@
             }
             
             try {
-                const response = await fetch(`${CONFIG.API_URL}/api/auth/setup-creator`, {
+                const response = await fetch('/api/auth/setup-creator', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

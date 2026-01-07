@@ -17,12 +17,9 @@
     ADMIN_IDS: [],
     
     // === API ===
-    // Используем прокси через Netlify для обхода CORS
-    // На Netlify: пустая строка = относительный путь /api/*
-    // Локально: прямой URL на Render
-    API_URL: window.location.hostname.includes('netlify.app') || window.location.hostname.includes('pomoechka') 
-        ? '' 
-        : 'https://pomoechka-mvp.onrender.com',
+    // Пустая строка = используем прокси через Netlify (/api/* -> Render)
+    // Это работает потому что в netlify.toml настроен redirect
+    API_URL: '',
     
     // === Settings ===
     DEFAULT_ITEM_LIFETIME: 6 * 60 * 60 * 1000, // 6 часов
