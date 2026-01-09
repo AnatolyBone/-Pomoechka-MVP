@@ -750,12 +750,30 @@
         // === Dashboard ===
         async function loadDashboard() {
             try {
-                const analytics = await API.getAnalytics();
+                // Загружаем аналитику
+                let analytics;
+                try {
+                    analytics = await API.getAnalytics();
+                } catch (e) {
+                    console.error('Analytics error:', e);
+                    // Fallback - загружаем напрямую
+                    const analyticsResponse = await fetch(`${CONFIG.API_URL}/api/analytics`, {
+                        headers: API.getHeaders()
+                    });
+                    if (analyticsResponse.ok) {
+                        analytics = await analyticsResponse.json();
+                    } else {
+                        throw new Error('Failed to load analytics');
+                    }
+                }
                 
-                document.getElementById('stat-total').textContent = analytics.totalItems;
-                document.getElementById('stat-active').textContent = analytics.activeItems;
-                document.getElementById('stat-taken').textContent = analytics.takenItems;
-                document.getElementById('stat-reports').textContent = analytics.pendingReports;
+                console.log('📊 Analytics:', analytics);
+                
+                // Обновляем статистику
+                document.getElementById('stat-total').textContent = analytics.totalItems || 0;
+                document.getElementById('stat-active').textContent = analytics.activeItems || 0;
+                document.getElementById('stat-taken').textContent = analytics.takenItems || 0;
+                document.getElementById('stat-reports').textContent = analytics.pendingReports || 0;
                 
                 // Update reports badge
                 const badge = document.getElementById('reportsBadge');
@@ -767,16 +785,20 @@
                 }
                 
                 // Load recent items
+                let items = [];
                 try {
-                    const itemsResponse = await fetch(`${CONFIG.API_URL}/api/admin/items?limit=5`, {
+                    const itemsResponse = await fetch(`${CONFIG.API_URL}/api/admin/items?limit=10`, {
                         headers: API.getHeaders()
                     });
-                    const items = itemsResponse.ok ? await itemsResponse.json() : [];
-                    renderRecentItems((items || []).slice(0, 5));
+                    if (itemsResponse.ok) {
+                        items = await itemsResponse.json();
+                        console.log('📦 Recent items:', items.length);
+                    }
                 } catch (e) {
                     console.error('Recent items error:', e);
-                    renderRecentItems([]);
                 }
+                
+                renderRecentItems((items || []).slice(0, 5));
                 
                 // Render charts
                 renderCharts(analytics, items);
@@ -784,28 +806,53 @@
                 document.getElementById('lastUpdate').textContent = 'Обновлено: ' + new Date().toLocaleTimeString('ru');
             } catch (e) {
                 console.error('Dashboard error:', e);
+                // Показываем ошибку пользователю
+                document.getElementById('stat-total').textContent = '?';
+                document.getElementById('stat-active').textContent = '?';
+                document.getElementById('stat-taken').textContent = '?';
+                document.getElementById('stat-reports').textContent = '?';
             }
         }
         
         function renderRecentItems(items) {
             const container = document.getElementById('recentItems');
-            if (items.length === 0) {
+            if (!items || items.length === 0) {
                 container.innerHTML = '<p class="text-gray-500 text-center py-4">Нет объявлений</p>';
                 return;
             }
             
-            container.innerHTML = items.map(item => `
+            // Получаем эмодзи категорий
+            function getCategoryEmoji(category) {
+                const emojis = {
+                    'furniture': '🛋️',
+                    'electronics': '📺',
+                    'books': '📚',
+                    'clothing': '👕',
+                    'other': '📦'
+                };
+                return emojis[category] || '📦';
+            }
+            
+            container.innerHTML = items.map(item => {
+                const category = item.category || 'other';
+                const emoji = getCategoryEmoji(category);
+                const title = escapeHtml(item.title || 'Без названия');
+                const createdAt = item.created_at || item.createdAt;
+                const status = item.status || 'active';
+                
+                return `
                 <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-xl">
-                    <span class="text-2xl">${item.emoji || '📦'}</span>
-                    <div class="flex-1">
-                        <p class="font-medium text-gray-800">${escapeHtml(item.title)}</p>
-                        <p class="text-sm text-gray-500">${item.author?.name || 'Аноним'} • ${formatTimeAgo(item.createdAt)}</p>
+                    <span class="text-2xl">${emoji}</span>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium text-gray-800 truncate">${title}</p>
+                        <p class="text-sm text-gray-500">${formatTimeAgo(createdAt)}</p>
                     </div>
-                    <span class="status-badge status-${item.status}">
-                        ${getStatusText(item.status)}
+                    <span class="status-badge status-${status} whitespace-nowrap">
+                        ${getStatusText(status)}
                     </span>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
         
         function renderCharts(analytics, items) {
@@ -857,19 +904,28 @@
                 });
                 
                 if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Response error:', response.status, errorText);
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
                 
                 const items = await response.json();
-                console.log('✅ Loaded items:', items.length);
-                renderItemsTable(items || []);
+                console.log('✅ Loaded items:', items.length, items);
+                
+                if (!Array.isArray(items)) {
+                    console.error('Items is not an array:', items);
+                    renderItemsTable([]);
+                    return;
+                }
+                
+                renderItemsTable(items);
             } catch (e) {
                 console.error('❌ Items error:', e);
                 renderItemsTable([]);
                 // Показываем ошибку пользователю
                 const tbody = document.getElementById('itemsTableBody');
                 if (tbody) {
-                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Ошибка загрузки: ${e.message}</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Ошибка загрузки: ${e.message}<br><small>Проверьте консоль для деталей</small></td></tr>`;
                 }
             }
         }
@@ -901,17 +957,24 @@
                 const category = item.category || 'other';
                 const emoji = getCategoryEmoji(category);
                 const title = escapeHtml(item.title || 'Без названия');
-                const address = escapeHtml(item.address || 'Адрес не указан');
+                const address = escapeHtml(item.address || item.location_details || 'Адрес не указан');
                 const status = item.status || 'active';
                 const reportsCount = item.reports_count || 0;
                 const createdAt = item.created_at || item.createdAt;
                 const telegramId = item.telegram_id || '';
+                const itemId = item.id;
+                
+                // Проверяем наличие фото
+                const hasPhoto = item.photo_url && item.photo_url.length > 10;
+                const photoPreview = hasPhoto ? 
+                    `<img src="${escapeHtml(item.photo_url)}" class="w-12 h-12 object-cover rounded" style="max-width: 48px; max-height: 48px;" onerror="this.style.display='none'">` :
+                    `<span class="text-xl">${emoji}</span>`;
                 
                 return `
                 <tr class="border-b border-gray-100 hover:bg-gray-50">
                     <td class="px-4 py-3">
                         <div class="flex items-center gap-2">
-                            <span class="text-xl">${emoji}</span>
+                            ${photoPreview}
                             <div class="min-w-0 flex-1">
                                 <p class="font-medium text-gray-800 text-sm truncate">${title}</p>
                                 <p class="text-xs text-gray-500 truncate">${address}</p>
@@ -919,7 +982,7 @@
                         </div>
                     </td>
                     <td class="px-4 py-3">
-                        <span class="text-xs text-gray-600" title="Telegram ID: ${telegramId}">${telegramId ? 'ID:' + telegramId.slice(-4) : '—'}</span>
+                        <span class="text-xs text-gray-600" title="Telegram ID: ${telegramId}">${telegramId ? 'ID:' + String(telegramId).slice(-4) : '—'}</span>
                     </td>
                     <td class="px-4 py-3">
                         <span class="status-badge status-${status}">${getStatusText(status)}</span>
@@ -932,9 +995,9 @@
                     </td>
                     <td class="px-4 py-3">
                         <div class="flex gap-1">
-                            ${status === 'hidden' ? `<button onclick="unhideItem(${item.id})" class="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Восстановить">✅</button>` : ''}
-                            ${status !== 'hidden' ? `<button onclick="hideItem(${item.id})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded" title="Скрыть">🚫</button>` : ''}
-                            <button onclick="deleteItem(${item.id})" class="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Удалить">🗑️</button>
+                            ${status === 'hidden' ? `<button onclick="unhideItem(${itemId})" class="p-1.5 text-green-600 hover:bg-green-50 rounded" title="Восстановить">✅</button>` : ''}
+                            ${status !== 'hidden' ? `<button onclick="hideItem(${itemId})" class="p-1.5 text-amber-600 hover:bg-amber-50 rounded" title="Скрыть">🚫</button>` : ''}
+                            <button onclick="deleteItem(${itemId})" class="p-1.5 text-red-600 hover:bg-red-50 rounded" title="Удалить">🗑️</button>
                         </div>
                     </td>
                 </tr>

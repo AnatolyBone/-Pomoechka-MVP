@@ -414,7 +414,11 @@ const API = {
     // === Analytics API ===
     async getAnalytics() {
         if (hasBackend()) {
-            const response = await fetch(`${CONFIG.API_URL}/analytics`);
+            const userId = ENV.getUserId();
+            const headers = { 'Accept': 'application/json' };
+            if (userId) headers['X-Telegram-ID'] = String(userId);
+            const response = await fetch(`${CONFIG.API_URL}/api/analytics`, { headers });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             return response.json();
         }
 

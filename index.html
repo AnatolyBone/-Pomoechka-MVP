@@ -57,11 +57,11 @@
             </div>
         </div>
         
-        <div class="flex-1 relative bg-gradient-to-br from-green-100 via-blue-50 to-indigo-100 overflow-hidden touch-none" id="mapArea" style="height: 45vh; min-height: 280px;">
+        <div class="flex-1 relative bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 overflow-hidden touch-none" id="mapArea" style="height: 45vh; min-height: 280px; position: relative;">
             <div id="mapDraggable" class="absolute" style="width: 200%; height: 200%; left: -50%; top: -50%; transition: none;">
                 <!-- OpenStreetMap тайлы -->
-                <div id="mapTiles" class="absolute inset-0"></div>
-                <div id="mapMarkers" class="absolute inset-0 z-10"></div>
+                <div id="mapTiles" class="absolute inset-0 opacity-90"></div>
+                <div id="mapMarkers" class="absolute inset-0 z-10 pointer-events-none"></div>
             </div>
             <div id="currentLocation" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
                 <div class="relative">
@@ -577,8 +577,18 @@ function removePhoto() {
 // ============================================
 async function loadItems() {
     try {
-        allItems = await API.request('/api/items?status=active');
-        console.log('✅ Items:', allItems);
+        var items = await API.request('/api/items?status=active');
+        console.log('✅ Items loaded:', items.length);
+        
+        // Фильтруем просроченные объявления на клиенте
+        var now = new Date();
+        allItems = items.filter(function(item) {
+            if (!item.expires_at) return true; // Если нет даты истечения, показываем
+            var expiresAt = new Date(item.expires_at);
+            return expiresAt > now;
+        });
+        
+        console.log('✅ Active items (not expired):', allItems.length);
     } catch(e) {
         console.warn('⚠️ Items error:', e);
         allItems = [];
@@ -752,7 +762,7 @@ function loadMapTiles() {
     var mapTiles = document.getElementById('mapTiles');
     if (!mapTiles) return;
     
-    // Используем OpenStreetMap тайлы
+    // Используем OpenStreetMap тайлы с лучшим стилем
     var zoom = 15;
     var lat = userLocation.lat;
     var lon = userLocation.lng;
@@ -764,19 +774,25 @@ function loadMapTiles() {
     
     mapTiles.innerHTML = '';
     
-    // Загружаем сетку тайлов 3x3
+    // Загружаем сетку тайлов 3x3 с улучшенным стилем
     for (var dx = -1; dx <= 1; dx++) {
         for (var dy = -1; dy <= 1; dy++) {
             var img = document.createElement('img');
-            var tileUrl = 'https://tile.openstreetmap.org/' + zoom + '/' + (tileX + dx) + '/' + (tileY + dy) + '.png';
+            // Используем CartoDB Positron для более красивого вида
+            var tileUrl = 'https://a.tile.openstreetmap.org/' + zoom + '/' + (tileX + dx) + '/' + (tileY + dy) + '.png';
             img.src = tileUrl;
             img.style.position = 'absolute';
             img.style.width = '33.33%';
             img.style.height = '33.33%';
             img.style.left = (33.33 * (dx + 1)) + '%';
             img.style.top = (33.33 * (dy + 1)) + '%';
-            img.style.opacity = '0.8';
+            img.style.opacity = '0.85';
             img.style.pointerEvents = 'none';
+            img.style.objectFit = 'cover';
+            img.onerror = function() {
+                // Fallback на градиент если тайл не загрузился
+                this.style.display = 'none';
+            };
             mapTiles.appendChild(img);
         }
     }
@@ -818,30 +834,56 @@ function renderMap() {
         // Если у объявления есть координаты, используем их (конвертируем в проценты)
         var left, top;
         if (item.latitude && item.longitude && userLocation) {
-            // Простая проекция: считаем что 1% = примерно 0.01 градуса
-            var latDiff = (item.latitude - userLocation.lat) * 1000; // масштаб
-            var lonDiff = (item.longitude - userLocation.lng) * 1000;
-            left = centerX + lonDiff * 0.5;
-            top = centerY - latDiff * 0.5;
+            // Вычисляем расстояние и угол от текущей позиции пользователя
+            var latDiff = item.latitude - userLocation.lat;
+            var lonDiff = item.longitude - userLocation.lng;
+            
+            // Масштабируем в зависимости от радиуса поиска (currentRadius в км)
+            // Примерно 1 градус = 111 км, поэтому для радиуса 2км используем масштаб
+            var scale = 100 / (currentRadius * 111); // конвертируем км в градусы
+            var pixelScale = 50; // масштаб в пикселях/процентах
+            
+            left = centerX + (lonDiff * scale * pixelScale);
+            top = centerY - (latDiff * scale * pixelScale); // минус потому что Y инвертирован
         } else {
-            // Распределяем маркеры вокруг центра
-            var angle = (index / allItems.length) * 2 * Math.PI + (item.id * 0.5);
-            var radius = 5 + (index % 3) * 5 + Math.random() * 8;
+            // Распределяем маркеры вокруг центра равномерно
+            var angle = (index / allItems.length) * 2 * Math.PI;
+            var radius = 8 + (index % 3) * 3;
             left = centerX + radius * Math.cos(angle);
-            top = centerY + radius * Math.sin(angle) * 0.8;
+            top = centerY + radius * Math.sin(angle);
         }
         
-        marker.style.left = Math.max(30, Math.min(70, left)) + '%';
-        marker.style.top = Math.max(30, Math.min(70, top)) + '%';
-        marker.style.transform = 'translate(-50%, -50%)';
+        // Ограничиваем позицию в пределах видимой области карты
+        marker.style.left = Math.max(10, Math.min(90, left)) + '%';
+        marker.style.top = Math.max(10, Math.min(90, top)) + '%';
+        marker.style.transform = 'translate(-50%, -100%)';
         
-        // Создаём кликабельный маркер
+        // Создаём кликабельный маркер с улучшенным дизайном
         var markerDiv = document.createElement('div');
-        markerDiv.className = 'text-2xl drop-shadow-lg transition-transform active:scale-150';
+        markerDiv.className = 'map-marker-icon';
         markerDiv.style.pointerEvents = 'auto';
         markerDiv.style.cursor = 'pointer';
         markerDiv.style.userSelect = 'none';
+        markerDiv.style.width = '48px';
+        markerDiv.style.height = '48px';
+        markerDiv.style.background = 'white';
+        markerDiv.style.borderRadius = '50%';
+        markerDiv.style.border = '3px solid #10b981';
+        markerDiv.style.display = 'flex';
+        markerDiv.style.alignItems = 'center';
+        markerDiv.style.justifyContent = 'center';
+        markerDiv.style.fontSize = '24px';
+        markerDiv.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        markerDiv.style.transition = 'transform 0.2s, box-shadow 0.2s';
         markerDiv.innerHTML = getCategoryEmoji(item.category);
+        markerDiv.onmouseenter = function() {
+            this.style.transform = 'scale(1.2)';
+            this.style.boxShadow = '0 6px 16px rgba(0,0,0,0.25)';
+        };
+        markerDiv.onmouseleave = function() {
+            this.style.transform = 'scale(1)';
+            this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+        };
         markerDiv.onclick = function(e) {
             e.stopPropagation();
             showItemOnMap(item.id);
@@ -885,6 +927,17 @@ function showItemOnMap(itemId) {
     showMapItemDetail(item);
 }
 
+function showItemDetail(itemId) {
+    var item = allItems.find(function(i) { 
+        return i.id === itemId || i.id === parseInt(itemId); 
+    });
+    if (!item) {
+        console.warn('⚠️ Объявление не найдено:', itemId);
+        return;
+    }
+    showMapItemDetail(item);
+}
+
 function showMapItemDetail(item) {
     // Простое модальное окно с деталями
     var modal = document.createElement('div');
@@ -893,22 +946,31 @@ function showMapItemDetail(item) {
         if (e.target === modal) modal.remove();
     };
     
-    modal.innerHTML = `
-        <div class="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto" onclick="event.stopPropagation()">
-            <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-4"></div>
-            <div class="px-4 pb-6">
-                <h2 class="text-xl font-bold mb-2">${escapeHtml(item.title)}</h2>
-                ${item.photo_url ? `<img src="${item.photo_url}" class="w-full rounded-xl mb-3" style="max-height: 200px; object-fit: cover;">` : ''}
-                <p class="text-gray-600 mb-4">${escapeHtml(item.description || 'Без описания')}</p>
-                <div class="flex gap-2 mb-4">
-                    <button onclick="openMapForItem()" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium">📍 Открыть на карте</button>
-                    <button onclick="markAsTaken(${item.id}); this.closest('.fixed').remove();" class="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium">✓ Забрал</button>
-                </div>
-                <button onclick="this.closest('.fixed').remove()" class="w-full py-2 text-gray-500">Закрыть</button>
-            </div>
-        </div>
-    `;
+    var photoHtml = '';
+    if (item.photo_url && item.photo_url.length > 10) {
+        photoHtml = '<img src="' + escapeHtml(item.photo_url) + '" class="w-full rounded-xl mb-3" style="max-height: 300px; object-fit: cover;" onerror="this.style.display=\'none\'">';
+    } else {
+        photoHtml = '<div class="w-full h-48 bg-gradient-to-br from-emerald-50 to-teal-100 rounded-xl mb-3 flex items-center justify-center text-6xl">' + getCategoryEmoji(item.category) + '</div>';
+    }
     
+    modal.innerHTML = 
+        '<div class="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-y-auto" onclick="event.stopPropagation()">' +
+        '<div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mt-3 mb-4"></div>' +
+        '<div class="px-4 pb-6">' +
+        '<h2 class="text-xl font-bold mb-2">' + escapeHtml(item.title) + '</h2>' +
+        photoHtml +
+        '<p class="text-gray-600 mb-2"><strong>Категория:</strong> ' + getCategoryEmoji(item.category) + '</p>' +
+        '<p class="text-gray-600 mb-4">' + escapeHtml(item.description || 'Без описания') + '</p>' +
+        (item.address ? '<p class="text-sm text-gray-500 mb-4">📍 ' + escapeHtml(item.address) + '</p>' : '') +
+        '<div class="flex gap-2 mb-4">' +
+        (item.latitude && item.longitude ? '<button onclick="openMapForItem()" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium">📍 Открыть на карте</button>' : '') +
+        '<button onclick="markAsTaken(' + item.id + '); this.closest(\'.fixed\').remove();" class="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium">✓ Забрал</button>' +
+        '</div>' +
+        '<button onclick="this.closest(\'.fixed\').remove()" class="w-full py-2 text-gray-500">Закрыть</button>' +
+        '</div>' +
+        '</div>';
+    
+    selectedMapItem = item;
     document.body.appendChild(modal);
 }
 
@@ -954,12 +1016,12 @@ function renderFeed(category) {
     container.innerHTML = items.map(function(item) {
         var photoHtml = '';
         if (item.photo_url && item.photo_url.length > 10) {
-            photoHtml = '<div class="relative mb-3"><img src="' + item.photo_url + '" class="w-full h-40 object-cover rounded-lg" onerror="this.parentElement.style.display=\'none\'"></div>';
+            photoHtml = '<div class="relative mb-3 rounded-lg overflow-hidden"><img src="' + item.photo_url + '" class="w-full h-40 object-cover" onerror="this.parentElement.innerHTML=\'<div class=\\\'w-full h-40 bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center text-5xl\\\'>' + getCategoryEmoji(item.category) + '</div>\'"></div>';
         } else {
             // Если нет фото - показываем эмодзи категории
-            photoHtml = '<div class="w-full h-32 bg-gradient-to-br from-emerald-50 to-teal-100 rounded-lg mb-3 flex items-center justify-center text-5xl">' + getCategoryEmoji(item.category) + '</div>';
+            photoHtml = '<div class="w-full h-40 bg-gradient-to-br from-emerald-50 to-teal-100 rounded-lg mb-3 flex items-center justify-center text-5xl">' + getCategoryEmoji(item.category) + '</div>';
         }
-        return '<div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100">' +
+        return '<div class="bg-white rounded-xl p-4 shadow-sm border border-gray-100 cursor-pointer hover:shadow-md transition-shadow" onclick="showItemDetail(' + item.id + ')">' +
             photoHtml +
             '<div class="flex justify-between items-start">' +
             '<h3 class="font-bold text-gray-800">' + escapeHtml(item.title) + '</h3>' +
@@ -967,7 +1029,7 @@ function renderFeed(category) {
             '<p class="text-gray-500 text-sm mt-1 line-clamp-2">' + escapeHtml(item.description || '') + '</p>' +
             '<div class="flex justify-between items-center mt-3">' +
             '<span class="text-xs text-gray-400">' + getTimeAgo(item.created_at) + '</span>' +
-            '<button onclick="markAsTaken(' + item.id + ')" class="text-xs bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-medium">Забрал ✓</button></div></div>';
+            '<button onclick="event.stopPropagation(); markAsTaken(' + item.id + ')" class="text-xs bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-medium hover:bg-emerald-200">Забрал ✓</button></div></div>';
     }).join('');
 }
 
