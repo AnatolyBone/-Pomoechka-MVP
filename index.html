@@ -80,7 +80,8 @@
         
         <div class="bg-white rounded-t-3xl shadow-lg p-4 pb-20 -mt-4 relative z-10">
             <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
-            <p id="mapItemsCount" class="text-sm text-center text-gray-600">Загрузка...</p>
+            <p id="mapItemsCount" class="text-sm text-center text-gray-600 mb-3">Загрузка...</p>
+            <div id="mapItemsList" class="space-y-2 max-h-48 overflow-y-auto"></div>
         </div>
         
         <button onclick="showScreen('add')" class="fixed bottom-24 right-4 w-14 h-14 bg-emerald-500 hover:bg-emerald-600 rounded-full text-white text-3xl shadow-lg z-20">+</button>
@@ -194,12 +195,14 @@
             </div>
             
             <div class="bg-white rounded-xl p-4 shadow-sm">
-                <label class="block text-sm font-semibold text-gray-700 mb-2">Местоположение</label>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Местоположение *</label>
                 <button onclick="getLocation()" id="locationBtn" class="w-full flex items-center gap-3 p-3 bg-emerald-50 rounded-lg text-emerald-700 font-medium">
                     <span class="text-xl">📍</span>
                     <span id="locationText">Определить местоположение</span>
                 </button>
+                <input id="addressInput" type="text" placeholder="Улица и дом (обязательно) *" required class="w-full mt-2 p-3 bg-gray-50 rounded-lg border-2 border-gray-200 focus:border-emerald-500 outline-none" style="border-color: #d1d5db;">
                 <input id="locationDetails" type="text" placeholder="Уточнение (у подъезда 3, за домом...)" class="w-full mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200 focus:border-emerald-500 outline-none">
+                <p class="text-xs text-gray-500 mt-1">Укажите улицу и номер дома, чтобы люди могли найти предмет</p>
             </div>
             
             <div class="bg-blue-50 border border-blue-200 rounded-xl p-3">
@@ -279,7 +282,7 @@
 </div>
 
 <!-- Map Provider Modal -->
-<div id="mapProviderModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+<div id="mapProviderModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4" style="z-index: 9999;">
     <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
         <h2 class="text-xl font-bold text-gray-800 mb-4 text-center">Открыть в картах</h2>
         <div class="space-y-3">
@@ -677,18 +680,20 @@ function centerMap() {
 
 // Загрузка карты - упрощенная версия
 function loadMapTiles() {
-    if (!userLocation) return;
-    
     var mapTiles = document.getElementById('mapTiles');
     if (!mapTiles) return;
     
-    // Используем упрощенную систему - просто показываем градиентный фон с паттерном
-    // Для MVP это достаточно, карта будет выглядеть аккуратно
+    // Создаем видимый фон карты с паттерном
     mapTiles.innerHTML = '';
     
-    // Создаем простой паттерн карты
+    // Градиентный фон как основа
+    var bg = document.createElement('div');
+    bg.style.cssText = 'width: 100%; height: 100%; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 25%, #6ee7b7 50%, #34d399 75%, #10b981 100%); position: absolute; top: 0; left: 0;';
+    mapTiles.appendChild(bg);
+    
+    // Паттерн сетки поверх
     var pattern = document.createElement('div');
-    pattern.style.cssText = 'width: 100%; height: 100%; background: repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(255,255,255,0.1) 20px, rgba(255,255,255,0.1) 21px), repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(255,255,255,0.1) 20px, rgba(255,255,255,0.1) 21px);';
+    pattern.style.cssText = 'width: 100%; height: 100%; position: absolute; top: 0; left: 0; background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.15), rgba(255,255,255,0.15) 30px, transparent 30px, transparent 31px), repeating-linear-gradient(90deg, rgba(255,255,255,0.15), rgba(255,255,255,0.15) 30px, transparent 30px, transparent 31px); pointer-events: none;';
     mapTiles.appendChild(pattern);
 }
 
@@ -700,19 +705,40 @@ function renderMap() {
     if (!container) return;
     container.innerHTML = '';
     
-    // Загружаем тайлы карты
-    if (userLocation) {
-        loadMapTiles();
-    }
+    // Загружаем тайлы карты (всегда показываем фон)
+    loadMapTiles();
     
     if (!allItems || allItems.length === 0) {
         if (emptyEl) emptyEl.classList.remove('hidden');
         if (countEl) countEl.innerHTML = '<span class="text-gray-500">Пока нет находок поблизости</span><br><span class="text-xs text-emerald-600">Станьте первым! Нажмите + чтобы добавить</span>';
+        var listContainer = document.getElementById('mapItemsList');
+        if (listContainer) listContainer.innerHTML = '';
         return;
     }
     
     if (emptyEl) emptyEl.classList.add('hidden');
     if (countEl) countEl.textContent = allItems.length + ' ' + pluralize(allItems.length, 'находка', 'находки', 'находок') + ' рядом';
+    
+    // Показываем список объявлений внизу карты
+    var listContainer = document.getElementById('mapItemsList');
+    if (listContainer && allItems.length > 0) {
+        listContainer.innerHTML = allItems.slice(0, 5).map(function(item) {
+            return '<div class="bg-gray-50 rounded-lg p-2 cursor-pointer hover:bg-gray-100 transition" onclick="showItemDetail(' + item.id + ')">' +
+                '<div class="flex items-center gap-2">' +
+                '<span class="text-xl">' + getCategoryEmoji(item.category) + '</span>' +
+                '<div class="flex-1 min-w-0">' +
+                '<p class="font-medium text-gray-800 text-sm truncate">' + escapeHtml(item.title) + '</p>' +
+                (item.address ? '<p class="text-xs text-gray-500 truncate">📍 ' + escapeHtml(item.address.split(',')[0]) + '</p>' : '') +
+                '</div>' +
+                '</div>' +
+                '</div>';
+        }).join('');
+        if (allItems.length > 5) {
+            listContainer.innerHTML += '<p class="text-xs text-gray-400 text-center mt-2">+ еще ' + (allItems.length - 5) + ' ' + pluralize(allItems.length - 5, 'находка', 'находки', 'находок') + '</p>';
+        }
+    } else if (listContainer) {
+        listContainer.innerHTML = '';
+    }
     
     allItems.forEach(function(item, index) {
         var marker = document.createElement('div');
@@ -805,23 +831,7 @@ function showItemOnMap(itemId) {
     console.log('✅ Найдено объявление:', item);
     selectedMapItem = item;
     
-    // Показываем детали внизу карты
-    var countEl = document.getElementById('mapItemsCount');
-    if (countEl) {
-        countEl.innerHTML = 
-            '<div class="bg-emerald-50 rounded-lg p-3 mb-2 border border-emerald-200">' +
-            '<strong class="text-emerald-900 block mb-1">' + escapeHtml(item.title) + '</strong>' +
-            '<p class="text-xs text-emerald-700 mb-2">' + escapeHtml(item.description || 'Без описания') + '</p>' +
-            '<div class="flex gap-2 flex-wrap">' +
-            '<button onclick="showItemDetail(' + item.id + ')" class="px-3 py-1 bg-emerald-500 text-white rounded-full text-xs font-medium active:bg-emerald-600">📖 Подробнее</button>' +
-            '<button onclick="openMapForItem()" class="px-3 py-1 bg-blue-500 text-white rounded-full text-xs font-medium active:bg-blue-600">📍 Карты</button>' +
-            '<button onclick="markAsTaken(' + item.id + ')" class="px-3 py-1 bg-gray-300 text-gray-700 rounded-full text-xs font-medium active:bg-gray-400">✓ Забрал</button>' +
-            '</div>' +
-            '</div>' +
-            '<p class="text-xs text-gray-500 text-center">Всего: ' + allItems.length + ' ' + pluralize(allItems.length, 'находка', 'находки', 'находок') + '</p>';
-    }
-    
-    // Показываем детали при клике
+    // Показываем детали в модальном окне
     showMapItemDetail(item);
 }
 
@@ -836,12 +846,23 @@ function showItemDetail(itemId) {
     showMapItemDetail(item);
 }
 
+var currentItemModal = null;
+
 function showMapItemDetail(item) {
+    // Закрываем предыдущее модальное окно если есть
+    if (currentItemModal) {
+        currentItemModal.remove();
+    }
+    
     // Простое модальное окно с деталями
     var modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black/50 z-50 flex items-end';
+    modal.className = 'fixed inset-0 bg-black/50 flex items-end';
+    modal.style.zIndex = '9998';
     modal.onclick = function(e) {
-        if (e.target === modal) modal.remove();
+        if (e.target === modal) {
+            modal.remove();
+            currentItemModal = null;
+        }
     };
     
     var photoHtml = '';
@@ -866,21 +887,29 @@ function showMapItemDetail(item) {
         photoHtml +
         '<p class="text-gray-600 mb-2"><strong>Категория:</strong> ' + getCategoryEmoji(item.category) + '</p>' +
         '<p class="text-gray-600 mb-4">' + escapeHtml(item.description || 'Без описания') + '</p>' +
-        (item.address ? '<p class="text-sm text-gray-500 mb-4">📍 ' + escapeHtml(item.address) + '</p>' : '') +
+        (item.address ? '<p class="text-sm text-gray-700 mb-4 font-medium">📍 ' + escapeHtml(item.address) + '</p>' : '<p class="text-sm text-amber-600 mb-4">⚠️ Адрес не указан</p>') +
         '<div class="flex gap-2 mb-4">' +
-        (item.latitude && item.longitude ? '<button onclick="openMapForItem()" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium">📍 Открыть на карте</button>' : '') +
-        '<button onclick="markAsTaken(' + item.id + '); this.closest(\'.fixed\').remove();" class="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium">✓ Забрал</button>' +
+        (item.latitude && item.longitude ? '<button onclick="openMapForItem(); if(currentItemModal) currentItemModal.remove(); currentItemModal=null;" class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium">📍 Открыть на карте</button>' : '') +
+        '<button onclick="markAsTaken(' + item.id + '); if(currentItemModal) currentItemModal.remove(); currentItemModal=null;" class="flex-1 px-4 py-2 bg-emerald-500 text-white rounded-lg font-medium">✓ Забрал</button>' +
         '</div>' +
-        '<button onclick="this.closest(\'.fixed\').remove()" class="w-full py-2 text-gray-500">Закрыть</button>' +
+        '<button onclick="if(currentItemModal) currentItemModal.remove(); currentItemModal=null;" class="w-full py-2 text-gray-500">Закрыть</button>' +
         '</div>' +
         '</div>';
     
     selectedMapItem = item;
+    currentItemModal = modal;
     document.body.appendChild(modal);
 }
 
 function openMapForItem() {
-    if (selectedMapItem) document.getElementById('mapProviderModal').classList.remove('hidden');
+    if (!selectedMapItem || !selectedMapItem.latitude || !selectedMapItem.longitude) {
+        alert('У этого объявления нет координат для открытия на карте');
+        return;
+    }
+    var modal = document.getElementById('mapProviderModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
 }
 
 function openMap(provider) {
@@ -1051,24 +1080,45 @@ function getLocation() {
 async function publishItem() {
     var title = document.getElementById('itemTitle').value.trim();
     var desc = document.getElementById('itemDesc').value.trim();
+    var address = document.getElementById('addressInput').value.trim();
     var details = document.getElementById('locationDetails').value.trim();
     
-    if (!title) { alert('Введите название'); return; }
+    if (!title) { 
+        alert('⚠️ Введите название находки'); 
+        document.getElementById('itemTitle').focus();
+        return; 
+    }
+    
+    if (!address) { 
+        alert('⚠️ Укажите улицу и номер дома. Это обязательно для публикации!'); 
+        document.getElementById('addressInput').focus();
+        document.getElementById('addressInput').style.borderColor = '#ef4444';
+        return; 
+    }
+    
+    if (!userLocation || !userLocation.lat || !userLocation.lng) {
+        alert('⚠️ Сначала определите местоположение (нажмите кнопку "Определить местоположение")');
+        return;
+    }
     
     var btn = document.getElementById('publishBtn');
     btn.disabled = true;
     btn.textContent = 'Публикация...';
     
+    // Формируем полный адрес
+    var fullAddress = address;
+    if (details) {
+        fullAddress += ', ' + details;
+    }
+    
     var data = {
         title: title,
-        description: desc + (details ? '\n📍 ' + details : ''),
-        category: selectedCategory
+        description: desc,
+        category: selectedCategory,
+        address: fullAddress,
+        latitude: userLocation.lat,
+        longitude: userLocation.lng
     };
-    
-    if (userLocation) {
-        data.latitude = userLocation.lat;
-        data.longitude = userLocation.lng;
-    }
     
     if (selectedPhotoBase64) {
         data.photo_url = selectedPhotoBase64;
@@ -1080,6 +1130,8 @@ async function publishItem() {
         // Очищаем форму
         document.getElementById('itemTitle').value = '';
         document.getElementById('itemDesc').value = '';
+        document.getElementById('addressInput').value = '';
+        document.getElementById('addressInput').style.borderColor = '#d1d5db';
         document.getElementById('locationDetails').value = '';
         removePhoto();
         

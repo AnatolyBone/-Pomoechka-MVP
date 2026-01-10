@@ -13,17 +13,19 @@ router.get('/', requireAdmin, async (req, res) => {
         );
         console.log('⏰ Автоматически просрочено объявлений:', expireResult.rowCount);
         
-        // Get item stats - считаем ТОЛЬКО реально активные (не просроченные)
+        // Get item stats - упрощенный запрос после обновления статусов
         const statsResult = await pool.query(`
             SELECT 
                 COUNT(*) as total,
-                COUNT(*) FILTER (WHERE status = 'active' AND expires_at >= NOW()) as active,
+                COUNT(*) FILTER (WHERE status = 'active') as active,
                 COUNT(*) FILTER (WHERE status = 'taken') as taken,
-                COUNT(*) FILTER (WHERE status = 'expired' OR (status = 'active' AND expires_at < NOW())) as expired,
+                COUNT(*) FILTER (WHERE status = 'expired') as expired,
                 COUNT(*) FILTER (WHERE status = 'hidden') as hidden
             FROM items
         `);
         const stats = statsResult.rows[0];
+        
+        console.log('📊 Raw stats from DB:', stats);
         
         // Get reports count
         const reportsResult = await pool.query(`
