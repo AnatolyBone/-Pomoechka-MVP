@@ -57,10 +57,11 @@
             </div>
         </div>
         
-        <div class="flex-1 relative bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 overflow-hidden touch-none" id="mapArea" style="height: 45vh; min-height: 280px; position: relative;">
-            <!-- OpenStreetMap тайлы - упрощенная структура -->
-            <div id="mapTiles" class="absolute inset-0 opacity-90" style="width: 100%; height: 100%;"></div>
-            <div id="mapMarkers" class="absolute inset-0 z-10" style="width: 100%; height: 100%;"></div>
+        <div class="flex-1 relative overflow-hidden touch-none" id="mapArea" style="height: 45vh; min-height: 280px; position: relative; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 25%, #6ee7b7 50%, #34d399 75%, #10b981 100%);">
+            <!-- Фон карты -->
+            <div id="mapTiles" class="absolute inset-0" style="width: 100%; height: 100%; z-index: 1;"></div>
+            <!-- Маркеры поверх -->
+            <div id="mapMarkers" class="absolute inset-0" style="width: 100%; height: 100%; z-index: 10; pointer-events: none;"></div>
             <div id="currentLocation" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
                 <div class="relative">
                     <div class="pulse-ring"></div>
@@ -79,9 +80,9 @@
         </div>
         
         <div class="bg-white rounded-t-3xl shadow-lg p-4 pb-20 -mt-4 relative z-10">
-            <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-3"></div>
+            <div class="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-3 cursor-pointer" onclick="toggleMapItemsList()"></div>
             <p id="mapItemsCount" class="text-sm text-center text-gray-600 mb-3">Загрузка...</p>
-            <div id="mapItemsList" class="space-y-2 max-h-48 overflow-y-auto"></div>
+            <div id="mapItemsList" class="space-y-2 max-h-48 overflow-y-auto transition-all duration-300"></div>
         </div>
         
         <button onclick="showScreen('add')" class="fixed bottom-24 right-4 w-14 h-14 bg-emerald-500 hover:bg-emerald-600 rounded-full text-white text-3xl shadow-lg z-20">+</button>
@@ -466,6 +467,12 @@ async function startApp() {
         document.getElementById('creatorModal').classList.remove('hidden');
     }
     
+    // Инициализируем карту сразу
+    setTimeout(function() {
+        loadMapTiles();
+        renderMap();
+    }, 100);
+    
     getLocation();
     updateProfile();
     loadItems();
@@ -678,23 +685,50 @@ function centerMap() {
     }
 }
 
+var mapItemsListExpanded = true;
+
+function toggleMapItemsList() {
+    var listContainer = document.getElementById('mapItemsList');
+    if (!listContainer) return;
+    
+    mapItemsListExpanded = !mapItemsListExpanded;
+    if (mapItemsListExpanded) {
+        listContainer.style.display = 'block';
+        listContainer.style.maxHeight = '192px';
+    } else {
+        listContainer.style.maxHeight = '0';
+        listContainer.style.overflow = 'hidden';
+        setTimeout(function() {
+            if (!mapItemsListExpanded) {
+                listContainer.style.display = 'none';
+            }
+        }, 300);
+    }
+}
+
 // Загрузка карты - упрощенная версия
 function loadMapTiles() {
     var mapTiles = document.getElementById('mapTiles');
-    if (!mapTiles) return;
+    if (!mapTiles) {
+        console.warn('⚠️ mapTiles элемент не найден');
+        return;
+    }
+    
+    // Проверяем, не загружена ли уже карта
+    if (mapTiles.dataset.loaded === 'true') {
+        return;
+    }
     
     // Создаем видимый фон карты с паттерном
     mapTiles.innerHTML = '';
     
-    // Градиентный фон как основа
-    var bg = document.createElement('div');
-    bg.style.cssText = 'width: 100%; height: 100%; background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 25%, #6ee7b7 50%, #34d399 75%, #10b981 100%); position: absolute; top: 0; left: 0;';
-    mapTiles.appendChild(bg);
-    
-    // Паттерн сетки поверх
+    // Паттерн сетки для визуального оформления
     var pattern = document.createElement('div');
-    pattern.style.cssText = 'width: 100%; height: 100%; position: absolute; top: 0; left: 0; background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.15), rgba(255,255,255,0.15) 30px, transparent 30px, transparent 31px), repeating-linear-gradient(90deg, rgba(255,255,255,0.15), rgba(255,255,255,0.15) 30px, transparent 30px, transparent 31px); pointer-events: none;';
+    pattern.style.cssText = 'width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.2), rgba(255,255,255,0.2) 30px, transparent 30px, transparent 31px), repeating-linear-gradient(90deg, rgba(255,255,255,0.2), rgba(255,255,255,0.2) 30px, transparent 30px, transparent 31px); pointer-events: none;';
     mapTiles.appendChild(pattern);
+    
+    mapTiles.dataset.loaded = 'true';
+    console.log('✅ Карта загружена');
 }
 
 function renderMap() {
@@ -702,11 +736,16 @@ function renderMap() {
     var countEl = document.getElementById('mapItemsCount');
     var emptyEl = document.getElementById('mapEmpty');
     
-    if (!container) return;
+    if (!container) {
+        console.warn('⚠️ mapMarkers контейнер не найден');
+        return;
+    }
     container.innerHTML = '';
     
     // Загружаем тайлы карты (всегда показываем фон)
     loadMapTiles();
+    
+    console.log('🗺️ Рендер карты, объявлений:', allItems ? allItems.length : 0);
     
     if (!allItems || allItems.length === 0) {
         if (emptyEl) emptyEl.classList.remove('hidden');
@@ -721,23 +760,30 @@ function renderMap() {
     
     // Показываем список объявлений внизу карты
     var listContainer = document.getElementById('mapItemsList');
-    if (listContainer && allItems.length > 0) {
-        listContainer.innerHTML = allItems.slice(0, 5).map(function(item) {
-            return '<div class="bg-gray-50 rounded-lg p-2 cursor-pointer hover:bg-gray-100 transition" onclick="showItemDetail(' + item.id + ')">' +
-                '<div class="flex items-center gap-2">' +
-                '<span class="text-xl">' + getCategoryEmoji(item.category) + '</span>' +
-                '<div class="flex-1 min-w-0">' +
-                '<p class="font-medium text-gray-800 text-sm truncate">' + escapeHtml(item.title) + '</p>' +
-                (item.address ? '<p class="text-xs text-gray-500 truncate">📍 ' + escapeHtml(item.address.split(',')[0]) + '</p>' : '') +
-                '</div>' +
-                '</div>' +
-                '</div>';
-        }).join('');
-        if (allItems.length > 5) {
-            listContainer.innerHTML += '<p class="text-xs text-gray-400 text-center mt-2">+ еще ' + (allItems.length - 5) + ' ' + pluralize(allItems.length - 5, 'находка', 'находки', 'находок') + '</p>';
+    if (listContainer) {
+        if (allItems.length > 0) {
+            if (mapItemsListExpanded) {
+                listContainer.style.display = 'block';
+                listContainer.style.maxHeight = '192px';
+            }
+            listContainer.innerHTML = allItems.slice(0, 5).map(function(item) {
+                return '<div class="bg-gray-50 rounded-lg p-2 cursor-pointer hover:bg-gray-100 transition" onclick="showItemDetail(' + item.id + ')">' +
+                    '<div class="flex items-center gap-2">' +
+                    '<span class="text-xl">' + getCategoryEmoji(item.category || 'other') + '</span>' +
+                    '<div class="flex-1 min-w-0">' +
+                    '<p class="font-medium text-gray-800 text-sm truncate">' + escapeHtml(item.title || 'Без названия') + '</p>' +
+                    (item.address ? '<p class="text-xs text-gray-500 truncate">📍 ' + escapeHtml(item.address.split(',')[0]) + '</p>' : '<p class="text-xs text-gray-400 truncate">📍 Адрес не указан</p>') +
+                    '</div>' +
+                    '</div>' +
+                    '</div>';
+            }).join('');
+            if (allItems.length > 5) {
+                listContainer.innerHTML += '<p class="text-xs text-gray-400 text-center mt-2">+ еще ' + (allItems.length - 5) + ' ' + pluralize(allItems.length - 5, 'находка', 'находки', 'находок') + '</p>';
+            }
+        } else {
+            listContainer.innerHTML = '';
+            listContainer.style.display = 'none';
         }
-    } else if (listContainer) {
-        listContainer.innerHTML = '';
     }
     
     allItems.forEach(function(item, index) {
@@ -869,11 +915,12 @@ function showMapItemDetail(item) {
     var hasPhoto = item.photo_url && item.photo_url.length > 20 && (item.photo_url.startsWith('data:') || item.photo_url.startsWith('http'));
     
     if (hasPhoto) {
-        photoHtml = '<div class="relative rounded-xl mb-3 overflow-hidden bg-gray-100">' +
-            '<img src="' + escapeHtml(item.photo_url) + '" class="w-full rounded-xl" style="max-height: 300px; min-height: 200px; object-fit: cover;" ' +
-            'onerror="this.onerror=null; this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\'" ' +
-            'alt="' + escapeHtml(item.title) + '">' +
-            '<div class="w-full h-48 bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center text-6xl" style="display: none;">' + getCategoryEmoji(item.category) + '</div>' +
+        var photoUrl = item.photo_url; // Не экранируем base64 или URL
+        var modalPhotoId = 'modal-photo-' + item.id + '-' + Date.now();
+        photoHtml = '<div class="relative rounded-xl mb-3 overflow-hidden bg-gray-100" id="' + modalPhotoId + '-container">' +
+            '<img src="' + photoUrl + '" class="w-full rounded-xl" style="max-height: 300px; min-height: 200px; object-fit: cover;" ' +
+            'onerror="var cont = document.getElementById(\'' + modalPhotoId + '-container\'); if(cont) { var emoji = \'' + getCategoryEmoji(item.category) + '\'; cont.innerHTML = \'<div class=\\"w-full h-48 bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center text-6xl\\">\' + emoji + \'</div>\'; }" ' +
+            'alt="' + escapeHtml(item.title || '') + '">' +
             '</div>';
     } else {
         photoHtml = '<div class="w-full h-48 bg-gradient-to-br from-emerald-50 to-teal-100 rounded-xl mb-3 flex items-center justify-center text-6xl">' + getCategoryEmoji(item.category) + '</div>';
@@ -953,12 +1000,15 @@ function renderFeed(category) {
         var hasPhoto = item.photo_url && item.photo_url.length > 20 && (item.photo_url.startsWith('data:') || item.photo_url.startsWith('http'));
         
         if (hasPhoto) {
-            var photoUrl = escapeHtml(item.photo_url);
-            photoHtml = '<div class="relative mb-3 rounded-lg overflow-hidden bg-gray-100" style="min-height: 160px;">' +
+            var photoUrl = item.photo_url; // Не экранируем base64 данные
+            var photoContainerId = 'photo-' + item.id + '-' + Date.now();
+            var categoryEmoji = getCategoryEmoji(item.category);
+            
+            photoHtml = '<div class="relative mb-3 rounded-lg overflow-hidden bg-gray-100" style="min-height: 160px;" id="' + photoContainerId + '">' +
                 '<img src="' + photoUrl + '" class="w-full h-40 object-cover" ' +
-                'onerror="this.onerror=null; this.parentElement.innerHTML=\'<div class=\\\'w-full h-40 bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center text-5xl\\\'>' + getCategoryEmoji(item.category) + '</div>\'" ' +
-                'onload="this.parentElement.style.minHeight=\\\'auto\\\'" ' +
-                'alt="' + escapeHtml(item.title) + '">' +
+                'onerror="var el = document.getElementById(\'' + photoContainerId + '\'); if(el) el.innerHTML = \'<div class=\\"w-full h-40 bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center text-5xl\\">' + categoryEmoji + '</div>\';" ' +
+                'onload="var el = document.getElementById(\'' + photoContainerId + '\'); if(el && el.style) el.style.minHeight = \'auto\';" ' +
+                'alt="' + escapeHtml(item.title || '') + '">' +
                 '</div>';
         } else {
             // Если нет фото - показываем эмодзи категории
@@ -1120,9 +1170,15 @@ async function publishItem() {
         longitude: userLocation.lng
     };
     
-    if (selectedPhotoBase64) {
+    // Добавляем фото если оно есть
+    if (selectedPhotoBase64 && selectedPhotoBase64.length > 20) {
         data.photo_url = selectedPhotoBase64;
+        console.log('📷 Отправляем фото, размер:', Math.round(selectedPhotoBase64.length / 1024), 'KB');
+    } else {
+        console.log('⚠️ Фото не загружено или слишком маленькое');
     }
+    
+    console.log('📤 Отправляем данные:', { ...data, photo_url: data.photo_url ? 'present (' + data.photo_url.length + ' chars)' : 'none' });
     
     try {
         await API.request('/api/items', { method: 'POST', body: JSON.stringify(data) });
@@ -1133,6 +1189,7 @@ async function publishItem() {
         document.getElementById('addressInput').value = '';
         document.getElementById('addressInput').style.borderColor = '#d1d5db';
         document.getElementById('locationDetails').value = '';
+        selectedPhotoBase64 = null; // Явно очищаем фото
         removePhoto();
         
         document.getElementById('successModal').classList.remove('hidden');

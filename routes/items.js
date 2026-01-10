@@ -81,8 +81,10 @@ router.post('/', async (req, res) => {
         latitude, 
         longitude, 
         address = '',
-        photo_url = ''
+        photo_url = null
     } = req.body;
+    
+    console.log('📸 Photo URL received:', photo_url ? (photo_url.substring(0, 50) + '... (' + photo_url.length + ' chars)') : 'none');
     
     if (!title) {
         return res.status(400).json({ error: 'Название обязательно' });
@@ -95,8 +97,10 @@ router.post('/', async (req, res) => {
         const result = await pool.query(
             `INSERT INTO items (telegram_id, title, description, category, condition, latitude, longitude, address, photo_url, expires_at)
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-            [telegramId, title, description, category, condition, latitude, longitude, address, photo_url, expiresAt]
+            [telegramId, title, description || '', category || 'other', condition || 'good', latitude, longitude, address || '', photo_url || null, expiresAt]
         );
+        
+        console.log('✅ Item created with photo_url:', result.rows[0].photo_url ? 'yes' : 'no');
         
         const item = result.rows[0];
         
