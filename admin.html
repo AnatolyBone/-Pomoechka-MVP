@@ -837,7 +837,8 @@
                 const category = item.category || 'other';
                 const emoji = getCategoryEmoji(category);
                 const title = escapeHtml(item.title || 'Без названия');
-                const createdAt = item.created_at || item.createdAt;
+                // Пробуем разные поля для даты
+                const createdAt = item.created_at || item.createdAt || item.created_at_ts || null;
                 const status = item.status || 'active';
                 
                 return `
@@ -845,7 +846,7 @@
                     <span class="text-2xl">${emoji}</span>
                     <div class="flex-1 min-w-0">
                         <p class="font-medium text-gray-800 truncate">${title}</p>
-                        <p class="text-sm text-gray-500">${formatTimeAgo(createdAt)}</p>
+                        <p class="text-sm text-gray-500">${createdAt ? formatTimeAgo(createdAt) : formatDate(createdAt) || 'давно'}</p>
                     </div>
                     <span class="status-badge status-${status} whitespace-nowrap">
                         ${getStatusText(status)}
@@ -991,7 +992,7 @@
                         <span class="text-xs ${reportsCount > 0 ? 'text-red-600 font-semibold' : 'text-gray-500'}">${reportsCount}</span>
                     </td>
                     <td class="px-4 py-3 text-xs text-gray-500">
-                        ${formatDate(createdAt)}
+                        ${createdAt ? formatDate(createdAt) : '—'}
                     </td>
                     <td class="px-4 py-3">
                         <div class="flex gap-1">
@@ -1379,17 +1380,65 @@
         }
         
         function formatTimeAgo(ts) {
-            if (!ts) return '';
-            const sec = Math.floor((Date.now() - ts) / 1000);
+            if (!ts) return 'давно';
+            
+            // Конвертируем в Date объект если это строка
+            let date;
+            if (typeof ts === 'string') {
+                date = new Date(ts);
+            } else if (typeof ts === 'number') {
+                // Если число меньше чем разумная дата в секундах, это секунды
+                // Если больше - это миллисекунды
+                date = ts < 10000000000 ? new Date(ts * 1000) : new Date(ts);
+            } else {
+                date = new Date(ts);
+            }
+            
+            // Проверяем валидность даты
+            if (isNaN(date.getTime())) {
+                console.warn('Invalid date:', ts);
+                return 'давно';
+            }
+            
+            const now = Date.now();
+            const diffMs = now - date.getTime();
+            const sec = Math.floor(diffMs / 1000);
+            
             if (sec < 60) return 'только что';
             if (sec < 3600) return `${Math.floor(sec / 60)} мин назад`;
             if (sec < 86400) return `${Math.floor(sec / 3600)} ч назад`;
-            return `${Math.floor(sec / 86400)} дн назад`;
+            const days = Math.floor(sec / 86400);
+            return `${days} ${days === 1 ? 'день' : days < 5 ? 'дня' : 'дней'} назад`;
         }
         
         function formatDate(ts) {
             if (!ts) return '';
-            return new Date(ts).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            
+            // Конвертируем в Date объект
+            let date;
+            if (typeof ts === 'string') {
+                date = new Date(ts);
+            } else if (typeof ts === 'number') {
+                date = ts < 10000000000 ? new Date(ts * 1000) : new Date(ts);
+            } else {
+                date = new Date(ts);
+            }
+            
+            // Проверяем валидность
+            if (isNaN(date.getTime())) {
+                return '';
+            }
+            
+            try {
+                return date.toLocaleDateString('ru-RU', { 
+                    day: 'numeric', 
+                    month: 'short', 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                });
+            } catch (e) {
+                return date.toISOString().slice(0, 16).replace('T', ' ');
+            }
         }
         
         function getStatusText(status) {
